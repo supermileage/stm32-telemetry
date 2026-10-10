@@ -79,6 +79,7 @@ void HAL_MspInit(void)
   /* USER CODE END MspInit 1 */
 }
 
+<<<<<<< HEAD
 /**
   * @brief MDF MSP Initialization
   * This function configures the hardware resources used in this example
@@ -857,6 +858,8 @@ void HAL_PCD_MspDeInit(PCD_HandleTypeDef* hpcd)
 
 }
 
+=======
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */

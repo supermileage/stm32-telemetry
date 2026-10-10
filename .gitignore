@@ -2,6 +2,9 @@
 Debug/
 Release/
 build/
+CMakeUserPresets.json
+__pycache__/
+*.pyc
 
 # Compiled object and dependency files
 *.o
@@ -14,9 +17,14 @@ build/
 *.list
 
 # IDE specific files (Eclipse / STM32CubeIDE)
+.metadata/
 .settings/
+!firmware/.settings/
+!firmware/.settings/*.prefs
 *.launch
 *.ioc.bak
+**/Core/Inc/Backup/
+**/Core/Src/Backup/
 
 # Operating System generated files
 .DS_Store
@@ -26,3 +34,6 @@ desktop.ini
 
 # version.h for any project
 **/Core/Inc/version.h
+
+# Others
+.vscode/

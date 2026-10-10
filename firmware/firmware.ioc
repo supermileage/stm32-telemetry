@@ -486,12 +486,17 @@ ProjectManager.ProjectName=firmware
 ProjectManager.ProjectStructure=
 ProjectManager.RegisterCallBack=
 ProjectManager.StackSize=0x400
-ProjectManager.TargetToolchain=STM32CubeIDE
+ProjectManager.TargetToolchain=CMake
 ProjectManager.ToolChainLocation=
 ProjectManager.UAScriptAfterPath=
 ProjectManager.UAScriptBeforePath=
+<<<<<<<< HEAD:firmware/firmware.ioc
 ProjectManager.UnderRoot=true
 ProjectManager.functionlistsort=1-SystemClock_Config-RCC-false-HAL-false,2-MX_GPIO_Init-GPIO-false-HAL-true,3-MX_ADF1_Init-ADF1-false-HAL-true,4-MX_I2C1_Init-I2C1-false-HAL-true,5-MX_I2C2_Init-I2C2-false-HAL-true,6-MX_ICACHE_Init-ICACHE-false-HAL-true,7-MX_OCTOSPI1_Init-OCTOSPI1-false-HAL-true,8-MX_OCTOSPI2_Init-OCTOSPI2-false-HAL-true,9-MX_SPI2_Init-SPI2-false-HAL-true,10-MX_UART4_Init-UART4-false-HAL-true,11-MX_USART1_UART_Init-USART1-false-HAL-true,12-MX_UCPD1_Init-UCPD1-false-LL-true,13-MX_USB_OTG_FS_PCD_Init-USB_OTG_FS-false-HAL-true,0-MX_CORTEX_M33_NS_Init-CORTEX_M33_NS-false-HAL-true,0-MX_PWR_Init-PWR-false-HAL-true
+========
+ProjectManager.UnderRoot=false
+ProjectManager.functionlistsort=1-SystemClock_Config-RCC-false-HAL-false,2-MX_GPIO_Init-GPIO-false-HAL-true,3-MX_ADF1_Init-ADF1-false-HAL-true,4-MX_I2C1_Init-I2C1-false-HAL-true,5-MX_I2C2_Init-I2C2-false-HAL-true,6-MX_ICACHE_Init-ICACHE-false-HAL-true,7-MX_OCTOSPI1_Init-OCTOSPI1-false-HAL-true,8-MX_OCTOSPI2_Init-OCTOSPI2-false-HAL-true,9-MX_SPI2_Init-SPI2-false-HAL-true,10-MX_UART4_Init-UART4-false-HAL-true,11-MX_USART1_UART_Init-USART1-false-HAL-true,12-MX_UCPD1_Init-UCPD1-false-LL-true,13-MX_USB_OTG_FS_PCD_Init-USB_OTG_FS-false-HAL-true,14-MX_FDCAN1_Init-FDCAN1-false-HAL-true,15-MX_RTC_Init-RTC-false-HAL-true,16-MX_SPI1_Init-SPI1-false-HAL-true,0-MX_CORTEX_M33_NS_Init-CORTEX_M33_NS-false-HAL-true,0-MX_PWR_Init-PWR-false-HAL-true
+>>>>>>>> 5308fda (Organize firmware project structure and add logging submodules):firmware/stm32_telemetry.ioc
 RCC.ADCFreq_Value=16000000
 RCC.ADF1Freq_Value=160000000
 RCC.AHBFreq_Value=160000000
@@ -517,7 +522,7 @@ RCC.I2C1Freq_Value=160000000
 RCC.I2C2Freq_Value=160000000
 RCC.I2C3Freq_Value=160000000
 RCC.I2C4Freq_Value=160000000
-RCC.IPParameters=ADCFreq_Value,ADF1Freq_Value,AHBFreq_Value,APB1Freq_Value,APB1TimFreq_Value,APB2Freq_Value,APB2TimFreq_Value,APB3Freq_Value,CK48Freq_Value,CRSFreq_Value,CortexFreq_Value,DACCLockSelectionVirtual,DACFreq_Value,EPOD_VALUE,FCLKCortexFreq_Value,FDCANFreq_Value,FamilyName,HCLKFreq_Value,HSE_VALUE,HSI48_VALUE,HSI_VALUE,I2C1Freq_Value,I2C2Freq_Value,I2C3Freq_Value,I2C4Freq_Value,LPTIM2Freq_Value,LPUART1Freq_Value,LSCOPinFreq_Value,LSIDIV_VALUE,LSI_VALUE,MCO1PinFreq_Value,MDF1Freq_Value,MSI_VALUE,OCTOSPIMFreq_Value,PLL2PoutputFreq_Value,PLL2QoutputFreq_Value,PLL2RoutputFreq_Value,PLL3PoutputFreq_Value,PLL3QoutputFreq_Value,PLL3RoutputFreq_Value,PLLN,PLLPoutputFreq_Value,PLLQoutputFreq_Value,PLLRCLKFreq_Value,RNGFreq_Value,SAESFreq_Value,SAI1Freq_Value,SAI2Freq_Value,SDMMCFreq_Value,SPI1Freq_Value,SPI2Freq_Value,SPI3Freq_Value,SYSCLKFreq_VALUE,SYSCLKSource,UART4Freq_Value,UART5Freq_Value,USART1Freq_Value,USART2Freq_Value,USART3Freq_Value,USBFreq_Value,VCOInput2Freq_Value,VCOInput3Freq_Value,VCOInputFreq_Value,VCOOutputFreq_Value,VCOPLL2OutputFreq_Value,VCOPLL3OutputFreq_Value
+RCC.IPParameters=ADCFreq_Value,ADF1Freq_Value,AHBFreq_Value,APB1Freq_Value,APB1TimFreq_Value,APB2Freq_Value,APB2TimFreq_Value,APB3Freq_Value,CK48Freq_Value,CRSFreq_Value,CortexFreq_Value,DACCLockSelectionVirtual,DACFreq_Value,EPOD_VALUE,FCLKCortexFreq_Value,FDCANFreq_Value,FamilyName,HCLKFreq_Value,HSE_VALUE,HSI48_VALUE,HSI_VALUE,I2C1Freq_Value,I2C2Freq_Value,I2C3Freq_Value,I2C4Freq_Value,LPTIM2Freq_Value,LPUART1Freq_Value,LSCOPinFreq_Value,LSIDIV_VALUE,LSI_VALUE,MCO1PinFreq_Value,MDF1Freq_Value,MSI_VALUE,OCTOSPIMFreq_Value,PLL2PoutputFreq_Value,PLL2QoutputFreq_Value,PLL2RoutputFreq_Value,PLL3PoutputFreq_Value,PLL3QoutputFreq_Value,PLL3RoutputFreq_Value,PLLN,PLLPoutputFreq_Value,PLLQoutputFreq_Value,PLLRCLKFreq_Value,RNGFreq_Value,SAESFreq_Value,SAI1Freq_Value,SAI2Freq_Value,SDMMCFreq_Value,SPI1CLockSelection,SPI1Freq_Value,SPI2Freq_Value,SPI3Freq_Value,SYSCLKFreq_VALUE,SYSCLKSource,UART4Freq_Value,UART5Freq_Value,USART1Freq_Value,USART2Freq_Value,USART3Freq_Value,USBFreq_Value,VCOInput2Freq_Value,VCOInput3Freq_Value,VCOInputFreq_Value,VCOOutputFreq_Value,VCOPLL2OutputFreq_Value,VCOPLL3OutputFreq_Value
 RCC.LPTIM2Freq_Value=160000000
 RCC.LPUART1Freq_Value=160000000
 RCC.LSCOPinFreq_Value=32000
@@ -542,7 +547,8 @@ RCC.SAESFreq_Value=48000000
 RCC.SAI1Freq_Value=258000000
 RCC.SAI2Freq_Value=258000000
 RCC.SDMMCFreq_Value=160000000
-RCC.SPI1Freq_Value=160000000
+RCC.SPI1CLockSelection=RCC_SPI1CLKSOURCE_HSI
+RCC.SPI1Freq_Value=16000000
 RCC.SPI2Freq_Value=160000000
 RCC.SPI3Freq_Value=160000000
 RCC.SYSCLKFreq_VALUE=160000000
@@ -559,6 +565,16 @@ RCC.VCOInputFreq_Value=4000000
 RCC.VCOOutputFreq_Value=320000000
 RCC.VCOPLL2OutputFreq_Value=516000000
 RCC.VCOPLL3OutputFreq_Value=516000000
+<<<<<<<< HEAD:firmware/firmware.ioc
+========
+SPI1.BaudRatePrescaler=SPI_BAUDRATEPRESCALER_64
+SPI1.CalculateBaudRate=250.0 KBits/s
+SPI1.DataSize=SPI_DATASIZE_8BIT
+SPI1.Direction=SPI_DIRECTION_2LINES
+SPI1.IPParameters=VirtualType,Mode,Direction,CalculateBaudRate,DataSize,BaudRatePrescaler
+SPI1.Mode=SPI_MODE_MASTER
+SPI1.VirtualType=VM_MASTER
+>>>>>>>> 5308fda (Organize firmware project structure and add logging submodules):firmware/stm32_telemetry.ioc
 SPI2.CalculateBaudRate=80.0 MBits/s
 SPI2.Direction=SPI_DIRECTION_2LINES
 SPI2.IPParameters=VirtualType,Mode,Direction,CalculateBaudRate,VirtualNSS

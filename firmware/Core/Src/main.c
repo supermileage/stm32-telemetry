@@ -18,7 +18,22 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+<<<<<<< HEAD
 #include "cmsis_os2.h"
+=======
+#include "app_freertos.h"
+#include "mdf.h"
+#include "fdcan.h"
+#include "i2c.h"
+#include "icache.h"
+#include "octospi.h"
+#include "rtc.h"
+#include "spi.h"
+#include "usart.h"
+#include "ucpd.h"
+#include "usb_otg.h"
+#include "gpio.h"
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -32,7 +47,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+<<<<<<< HEAD
 #include "version.h"
+=======
+
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -41,6 +60,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+<<<<<<< HEAD
 MDF_HandleTypeDef AdfHandle0;
 MDF_FilterConfigTypeDef AdfFilterConfig0;
 
@@ -56,6 +76,8 @@ UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
+=======
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
 
 /* USER CODE BEGIN PV */
 
@@ -64,6 +86,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void SystemPower_Config(void);
+<<<<<<< HEAD
 void MX_FREERTOS_Init(void);
 static void MX_GPIO_Init(void);
 static void MX_ADF1_Init(void);
@@ -77,6 +100,8 @@ static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_UCPD1_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
+=======
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -129,6 +154,12 @@ int main(void)
   MX_USART1_UART_Init();
   MX_UCPD1_Init();
   MX_USB_OTG_FS_PCD_Init();
+<<<<<<< HEAD
+=======
+  MX_FDCAN1_Init();
+  MX_RTC_Init();
+  MX_SPI1_Init();
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -173,6 +204,7 @@ void SystemClock_Config(void)
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI
+<<<<<<< HEAD
                               |RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
@@ -180,6 +212,17 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = RCC_MSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_4;
+=======
+                              |RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = RCC_MSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_4;
+  RCC_OscInitStruct.LSIDiv = RCC_LSI_DIV1;
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLMBOOST = RCC_PLLMBOOST_DIV1;
@@ -231,6 +274,7 @@ static void SystemPower_Config(void)
 /* USER CODE END PWR */
 }
 
+<<<<<<< HEAD
 /**
   * @brief ADF1 Initialization Function
   * @param None
@@ -884,6 +928,8 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
+=======
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
@@ -912,6 +958,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 /**
   * @brief  This function is executed in case of error occurrence.
+<<<<<<< HEAD
+=======
+  * @param None
+>>>>>>> 5308fda (Organize firmware project structure and add logging submodules)
   * @retval None
   */
 void Error_Handler(void)

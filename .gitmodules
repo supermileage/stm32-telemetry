@@ -1,0 +1,6 @@
+[submodule "lib/sd_card/upstream"]
+	path = lib/sd_card/upstream
+	url = https://github.com/kiwih/cubeide-sd-card.git
+[submodule "lib/fatfs/upstream"]
+	path = lib/fatfs/upstream
+	url = https://github.com/STMicroelectronics/stm32-mw-fatfs.git
