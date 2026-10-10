@@ -25,7 +25,7 @@
       "binaryDir": "${sourceDir}/../build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug", "TELEMETRY_BUILD_FIRMWARE": "OFF",
-        "BUILD_TESTING": "ON", "CMAKE_C_COMPILER": "gcc"
+        "BUILD_TESTING": "ON", "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++"
       }
     }
   ],

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(stm32_telemetry VERSION 0.1.0 LANGUAGES C)
+project(stm32_telemetry VERSION 0.1.0 LANGUAGES C CXX)
 
 option(TELEMETRY_BUILD_FIRMWARE "Build the STM32U585 firmware" ON)
 option(TELEMETRY_SD_HELLO_TEST "Run the one-shot SD Hello World test" OFF)
@@ -92,10 +92,16 @@ add_subdirectory("${LIB_ROOT}/drivers/sd_spi" "${CMAKE_CURRENT_BINARY_DIR}/sd_sp
 target_link_libraries(sd_spi PRIVATE stm32_platform telemetry_warnings)
 
 add_library(telemetry_app STATIC
-    App/app.c
+    App/app.cpp
     App/logging/logger.c App/logging/log_file.c
     App/storage/storage.c App/storage/storage_task.c App/storage/sd_diskio.c
     BSP/b_u585i_iot02a/board_sd.c BSP/sd_spi_port.c)
+
+target_compile_features(telemetry_app PRIVATE cxx_std_17)
+set_target_properties(telemetry_app PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_options(telemetry_app PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 target_include_directories(telemetry_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/BSP/b_u585i_iot02a" "${CMAKE_CURRENT_SOURCE_DIR}/BSP")
 target_link_libraries(telemetry_app PUBLIC freertos sd_spi fatfs PRIVATE telemetry_warnings)
@@ -114,7 +120,8 @@ target_compile_definitions(telemetry_app PRIVATE
     TELEMETRY_SD_HELLO_TEST=$<BOOL:${TELEMETRY_SD_HELLO_TEST}>)
 
 add_executable(stm32_telemetry $<TARGET_OBJECTS:cube_generated>)
-set_target_properties(stm32_telemetry PROPERTIES SUFFIX ".elf" C_EXTENSIONS OFF)
+set_target_properties(stm32_telemetry PROPERTIES
+    SUFFIX ".elf" C_EXTENSIONS OFF LINKER_LANGUAGE CXX)
 target_link_libraries(stm32_telemetry PRIVATE telemetry_app stm32_hal)
 target_link_options(stm32_telemetry PRIVATE "-T${_linker}"
     "LINKER:-Map,${CMAKE_CURRENT_BINARY_DIR}/stm32_telemetry.map"

@@ -28,6 +28,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32u5xx_hal.h"
+
 #include "stm32u5xx_ll_ucpd.h"
 #include "stm32u5xx_ll_bus.h"
 #include "stm32u5xx_ll_cortex.h"
@@ -190,6 +191,8 @@ void Error_Handler(void);
 #define MIC_SDIN0_GPIO_Port GPIOB
 #define WRLS_WKUP_W_Pin GPIO_PIN_15
 #define WRLS_WKUP_W_GPIO_Port GPIOF
+#define SD_CS_Pin GPIO_PIN_12
+#define SD_CS_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 
