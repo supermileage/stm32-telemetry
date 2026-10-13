@@ -28,6 +28,7 @@ The board has an in built 3D accelerometer and gyroscope, ISM330DHCX.
 	- The FIFO watermark sets the amount unread samples that can accumulate before FIFO_WTM_IA (in FIFO_STATUS2) is set
 		- To throw an interrupt when this happens bit INT1_FIFO_TH in INT1_CTRL should be set
 	- When old data has become overwritten then FIFO_OVR_IA bit in FIFO_STATUS2 is set
+		- To be able to call FreeRTOS ISR safe functions the NVIC config for the pin should have a priority `>= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY` which is currently 5. A lower number means it is a higher priority (unlike task priorities) and thus FreeRTOS will/can not handle them as they will have 0 latency.
 	- Get the number of unread samples to empty FIFO before it's full from DIFF_FIFO_[9:0] in FIFO_STATUS1&2
 
 
