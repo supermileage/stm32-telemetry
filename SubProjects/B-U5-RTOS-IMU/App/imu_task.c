@@ -32,7 +32,7 @@ void IMU_task(void *parameters) {
 		if(words_read > 0) { consecutive_empty_reads = 0; }
 		else if(++consecutive_empty_reads >= 5){
 			uint8_t ODR_XL;
-			HAL_StatusTypeDef status = imu_read_registers(&imu, 0x10, &ODR_XL, 1);
+			HAL_StatusTypeDef status = i2c_read(imu.i2c, IMU_ADDRESS, 0x10, &ODR_XL, 1);
 			if(status == HAL_OK && ODR_XL != 0b01001000){
 				IMU_init(&imu);
 			}

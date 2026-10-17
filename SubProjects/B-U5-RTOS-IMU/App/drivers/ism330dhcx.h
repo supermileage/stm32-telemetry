@@ -45,11 +45,16 @@ typedef enum {
 	TIMESTAMP = 0x04
 } IMU_FIFO_TAG;
 
+typedef enum {
+	I2C_READ,
+	I2C_WRITE
+} i2c_direction_t;
+
 void IMU_init(imu_t *imu);
 uint16_t IMU_drain_fifo(imu_t *imu);
 void IMU_log_clock_pair(imu_t *imu);
 
-HAL_StatusTypeDef imu_read_registers(imu_t *imu, uint8_t register_address, uint8_t *data, uint16_t length);
+HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *i2c, uint16_t device_address, uint8_t register_address, uint8_t *data, uint16_t length);
 
 
 #endif /* APP_DRIVERS_ISM330DHCX_H_ */

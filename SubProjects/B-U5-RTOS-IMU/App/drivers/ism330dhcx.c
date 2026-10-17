@@ -37,23 +37,29 @@ static void decode_xyz(const uint8_t *data, double scale, xyz_t *out) {
 	out->z = (int16_t) combine_u8_to_u16(data[5], data[4]) * scale;
 }
 
-static HAL_StatusTypeDef try_read(imu_t *imu, uint8_t register_address, uint8_t *data, uint16_t length) {
+static HAL_StatusTypeDef try_transfer(I2C_HandleTypeDef *i2c, uint16_t device_address, i2c_direction_t direction, uint8_t register_address, uint8_t *data, uint16_t length) {
 	HAL_StatusTypeDef status = HAL_ERROR;
 	for (int attempt = 0; attempt < MAX_I2C_ATTEMPTS && status != HAL_OK; attempt++)
-		status = HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, register_address, I2C_MEMADD_SIZE_8BIT, data, length, IMU_I2C_TIMEOUT_MS);
+		if(direction == I2C_READ){
+			status = HAL_I2C_Mem_Read(i2c, IMU_ADDRESS, register_address, I2C_MEMADD_SIZE_8BIT, data, length, IMU_I2C_TIMEOUT_MS);
+		}else{
+			status = HAL_I2C_Mem_Write(i2c, IMU_ADDRESS, register_address, I2C_MEMADD_SIZE_8BIT, data, length, IMU_I2C_TIMEOUT_MS);
+		}
 	return status;
 }
 
-HAL_StatusTypeDef imu_read_registers(imu_t *imu, uint8_t register_address, uint8_t *data, uint16_t length) {
+
+
+static HAL_StatusTypeDef transfer_with_recovery(I2C_HandleTypeDef *i2c, uint16_t device_address, i2c_direction_t direction, uint8_t register_address, uint8_t *data, uint16_t length) {
 	//attempt to read
-	if (try_read(imu, register_address, data, length) == HAL_OK) {
+	if (try_transfer(i2c, device_address, direction, register_address, data, length) == HAL_OK) {
 		return HAL_OK;
 	}
 	//here if multiple attempts fail
-	imu->i2c_errors++;
-	//try to reinit I2C bus, keeping settings the same
+	log_write(); //log i2c error
 
-	HAL_I2C_DeInit(imu->i2c);
+	//try to reinit I2C bus, keeping settings the same
+	HAL_I2C_DeInit(i2c);
 
 	//reconfigure SDA and SCL as GPIO so we can toggle them
 	GPIO_InitTypeDef pin_config = {
@@ -79,8 +85,16 @@ HAL_StatusTypeDef imu_read_registers(imu_t *imu, uint8_t register_address, uint8
 	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_SET);
 	vTaskDelay(pdMS_TO_TICKS(1));
 
-	HAL_I2C_Init(imu->i2c);
-	return try_read(imu, register_address, data, length);
+	HAL_I2C_Init(i2c);
+	return try_transfer(i2c, device_address, direction, register_address, data, length);
+}
+
+HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *i2c, uint16_t device_address, uint8_t register_address, uint8_t *data, uint16_t length){
+	return transfer_with_recovery(i2c, device_address, I2C_READ, register_address, data, length);
+}
+
+HAL_StatusTypeDef i2c_write(I2C_HandleTypeDef *i2c, uint16_t device_address, uint8_t register_address, const uint8_t *data, uint16_t length){
+	return transfer_with_recovery(i2c, device_address, I2C_WRITE, register_address, (uint8_t *)data, length);
 }
 
 void IMU_init(imu_t *imu) {
@@ -187,9 +201,9 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 
 		//log data (tag, timeslot, data): xQueueSend
 		log_write();
-		return words_read;
 	}
 
+	return words_read;
 }
 
 void IMU_log_clock_pair(imu_t *imu) {
