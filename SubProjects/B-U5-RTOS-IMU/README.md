@@ -35,3 +35,4 @@ The board has an in built 3D accelerometer and gyroscope, ISM330DHCX.
 ## TODO
 - [ ] Use non blocking I2C reads
 - [ ] Check for errors from I2C calls
+- [ ] Add wrapper around I2C when multiple devices need bus, use mutex
