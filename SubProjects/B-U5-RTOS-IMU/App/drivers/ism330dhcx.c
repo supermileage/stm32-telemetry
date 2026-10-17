@@ -10,6 +10,13 @@
 #include "task.h"
 #include <stdio.h>
 #include "log.h"
+#include "main.h"
+
+//return early if HAL error, only use on functions with return type void
+#define HAL_TRY(expr) do{ \
+		HAL_StatusTypeDef status = (expr); \
+		if (status != HAL_OK) return; \
+	} while(0)
 
 //TODO: put in a file for util functions
 static inline uint16_t min_u16(uint16_t a, uint16_t b) {
@@ -24,10 +31,56 @@ static inline uint32_t combine_u8_to_u32(uint8_t a, uint8_t b, uint8_t c, uint8_
 	return ((uint32_t) a << 24) | ((uint32_t) b << 16) | ((uint32_t) c << 8) | d;
 }
 //use int32_t for gyroscope, 16 bits maxes out at 57 degrees per second
-void decode_xyz(const uint8_t *data, double scale, xyz_t *out) {
+static void decode_xyz(const uint8_t *data, double scale, xyz_t *out) {
 	out->x = (int16_t) combine_u8_to_u16(data[1], data[0]) * scale;
 	out->y = (int16_t) combine_u8_to_u16(data[3], data[2]) * scale;
 	out->z = (int16_t) combine_u8_to_u16(data[5], data[4]) * scale;
+}
+
+static HAL_StatusTypeDef try_read(imu_t *imu, uint8_t register_address, uint8_t *data, uint16_t length) {
+	HAL_StatusTypeDef status = HAL_ERROR;
+	for (int attempt = 0; attempt < MAX_I2C_ATTEMPTS && status != HAL_OK; attempt++)
+		status = HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, register_address, I2C_MEMADD_SIZE_8BIT, data, length, IMU_I2C_TIMEOUT_MS);
+	return status;
+}
+
+HAL_StatusTypeDef imu_read_registers(imu_t *imu, uint8_t register_address, uint8_t *data, uint16_t length) {
+	//attempt to read
+	if (try_read(imu, register_address, data, length) == HAL_OK) {
+		return HAL_OK;
+	}
+	//here if multiple attempts fail
+	imu->i2c_errors++;
+	//try to reinit I2C bus, keeping settings the same
+
+	HAL_I2C_DeInit(imu->i2c);
+
+	//reconfigure SDA and SCL as GPIO so we can toggle them
+	GPIO_InitTypeDef pin_config = {
+			.Mode = GPIO_MODE_OUTPUT_OD,
+			.Pull = GPIO_NOPULL,
+			.Speed = GPIO_SPEED_FREQ_LOW
+	};
+	pin_config.Pin = SCL_PIN;
+	HAL_GPIO_Init(SCL_PORT, &pin_config);
+	pin_config.Pin = SDA_PIN;
+	HAL_GPIO_Init(SDA_PORT, &pin_config);
+
+	//while deinit also pulse I2C clock 9 times to clear any possible partial/torn communication
+	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_SET); // let go of SDA so we can read who's holding it (open drain)
+	for (int clock_pulse = 0; clock_pulse < 9 && HAL_GPIO_ReadPin(SDA_PORT, SDA_PIN) == GPIO_PIN_RESET; clock_pulse++) {
+		HAL_GPIO_WritePin(SCL_PORT, SCL_PIN, GPIO_PIN_RESET);
+		vTaskDelay(pdMS_TO_TICKS(1));
+		HAL_GPIO_WritePin(SCL_PORT, SCL_PIN, GPIO_PIN_SET);
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_RESET); // STOP: SDA rises while SCL is high
+	vTaskDelay(pdMS_TO_TICKS(1));
+	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(1));
+
+	HAL_I2C_Init(imu->i2c);
+	return try_read(imu, register_address, data, length);
 }
 
 void IMU_init(imu_t *imu) {
@@ -73,9 +126,10 @@ void IMU_init(imu_t *imu) {
 
 }
 
-void IMU_drain_fifo(imu_t *imu) {
+uint16_t IMU_drain_fifo(imu_t *imu) {
 	//FIFO reading
 	uint16_t words_to_read;
+	uint16_t words_read = 0;
 	uint8_t FIFO_data[CHUNK * BYTES_PER_WORD]; //7 bytes per word
 	//read in chunks so that FIFO_data doesn't have to be sized to the worst case scenario of FIFO being completely full
 	//also makes it so the I2C bus isn't being hogged for too long
@@ -86,7 +140,7 @@ void IMU_drain_fifo(imu_t *imu) {
 		HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x3A, I2C_MEMADD_SIZE_8BIT, FIFO_status, 2, 200);
 
 		uint8_t FIFO_full = FIFO_status[1] & 0b00100000; //FIFO will be full in one read
-		if(FIFO_full){
+		if (FIFO_full) {
 			log_write();
 		}
 		uint8_t FIFO_overrun = FIFO_status[1] & 0b00001000; //FIFO has begun to overwrite old data as it's full
@@ -100,6 +154,7 @@ void IMU_drain_fifo(imu_t *imu) {
 		} //exit condition
 		uint16_t current_chunk = min_u16(words_to_read, CHUNK); //don't read more than we have
 		HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x78, I2C_MEMADD_SIZE_8BIT, FIFO_data, current_chunk * BYTES_PER_WORD, 200); //auto wraps around so we can just burst read
+		words_read += current_chunk;
 
 		//process data (tag, timestamp, turn high+low of each measurement to one number)
 		for (uint16_t i = 0; i < current_chunk * BYTES_PER_WORD; i += BYTES_PER_WORD) {
@@ -132,6 +187,7 @@ void IMU_drain_fifo(imu_t *imu) {
 
 		//log data (tag, timeslot, data): xQueueSend
 		log_write();
+		return words_read;
 	}
 
 }

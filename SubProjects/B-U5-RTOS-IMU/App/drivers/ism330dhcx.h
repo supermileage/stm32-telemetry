@@ -18,8 +18,17 @@
 
 #define STARTUP_MS 35
 
+#define MAX_I2C_ATTEMPTS 3
+#define IMU_I2C_TIMEOUT_MS 50
+
+#define SCL_PIN GPIO_PIN_4
+#define SCL_PORT GPIOH
+#define SDA_PIN GPIO_PIN_5
+#define SDA_PORT GPIOH
+
 typedef struct{
 	I2C_HandleTypeDef *i2c;
+	unsigned int i2c_errors;
 	float mg_per_lsb;
 	float mdps_per_lsb;
 	double timestamp_resolution;
@@ -37,8 +46,10 @@ typedef enum {
 } IMU_FIFO_TAG;
 
 void IMU_init(imu_t *imu);
-void IMU_drain_fifo(imu_t *imu);
+uint16_t IMU_drain_fifo(imu_t *imu);
 void IMU_log_clock_pair(imu_t *imu);
+
+HAL_StatusTypeDef imu_read_registers(imu_t *imu, uint8_t register_address, uint8_t *data, uint16_t length);
 
 
 #endif /* APP_DRIVERS_ISM330DHCX_H_ */
