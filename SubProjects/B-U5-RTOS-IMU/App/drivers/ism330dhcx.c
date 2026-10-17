@@ -103,35 +103,35 @@ void IMU_init(imu_t *imu) {
 
 	//init
 	uint8_t TIMESTAMP_EN = 0b00100000; //start logging time at startup
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x19, I2C_MEMADD_SIZE_8BIT, &TIMESTAMP_EN, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x19, &TIMESTAMP_EN, 1));
 	uint8_t DEVICE_CONF = 0b11100010; //set DEVICE_CONF as it's recommended, rest default
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x18, I2C_MEMADD_SIZE_8BIT, &DEVICE_CONF, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x18, &DEVICE_CONF, 1));
 	uint8_t BDU = 0b01000100; //set BDU = 1, rest default. So high and low bytes don't tear/stay in sync
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x12, I2C_MEMADD_SIZE_8BIT, &BDU, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x12, &BDU, 1));
 	uint8_t ODR_XL = 0b01001000; //104 Hz sampling rate, 4g FS, default LPF2, last bit must be 0
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x10, I2C_MEMADD_SIZE_8BIT, &ODR_XL, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x10, &ODR_XL, 1));
 	imu->mg_per_lsb = 0.122f;
 	uint8_t ODR_G = 0b01000100; //104 Hz sampling rate, FS: max 500 degrees per second
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x11, I2C_MEMADD_SIZE_8BIT, &ODR_G, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x11, &ODR_G, 1));
 	imu->mdps_per_lsb = 17.50f;
 	//maybe send reset signal at CTRL3_C
 
 	//FIFO
 	uint8_t FIFO_WATERMARK[] = { 0b01111111, 0b00000000 }; //set threshold to alert us to 127 words (6 byte readings + byte for tag)
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x07, I2C_MEMADD_SIZE_8BIT, FIFO_WATERMARK, 2, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x07, FIFO_WATERMARK, 2));
 	uint8_t FIFO_INT1_THRESHOLD = 0b00111000; //throw interrupt when amount of unread words >= watermark (threshold), when about to be full, when overwriting
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x0D, I2C_MEMADD_SIZE_8BIT, &FIFO_INT1_THRESHOLD, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x0D, &FIFO_INT1_THRESHOLD, 1));
 	uint8_t FIFO_BDR = 0b01000100; //how fast readings are read into FIFO, good standard of 104hz. BDR<=ODR
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x09, I2C_MEMADD_SIZE_8BIT, &FIFO_BDR, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x09, &FIFO_BDR, 1));
 	uint8_t FIFO_mode_time = 0b11000110; //write one timestamp word every 32 slots (slot = 1 tick of BDR), no temperature readings, overwrite old data mode when full
-	HAL_I2C_Mem_Write(imu->i2c, IMU_ADDRESS, 0x0A, I2C_MEMADD_SIZE_8BIT, &FIFO_mode_time, 1, 200);
+	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x0A, &FIFO_mode_time, 1));
 	uint8_t FREQ_FINE_u; //internal IMU clock compensation
-	HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x63, I2C_MEMADD_SIZE_8BIT, &FREQ_FINE_u, 1, 200);
+	HAL_TRY(i2c_read(imu->i2c, IMU_ADDRESS, 0x63, &FREQ_FINE_u, 1));
 	int8_t FREQ_FINE = (int8_t) FREQ_FINE_u;
 	double timestamp_resolution = 0.000025 / (1 + 0.0015 * FREQ_FINE); //base of 25us resolution, off by 0.15% per FREQ_FINE
 	imu->timestamp_resolution = timestamp_resolution;
 	uint8_t timestamp_[4];
-	HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x40, I2C_MEMADD_SIZE_8BIT, timestamp_, 4, 200);
+	HAL_TRY(i2c_read(imu->i2c, IMU_ADDRESS, 0x40, timestamp_, 4));
 	uint32_t start_timestamp = combine_u8_to_u32(timestamp_[3], timestamp_[2], timestamp_[1], timestamp_[0]);
 	//how much ahead if the MCU time, to add for future timestamps so they allgn with our time (and other data which will align to your time)
 	//using tickcount is a little coarse due to resolution of 1ms, but we don't need to be that precise
@@ -151,7 +151,7 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 	//rereading also makes sure there is no problem if the high and low byte of DIFF_FIFO are mismatched
 	for (;;) {
 		uint8_t FIFO_status[2];
-		HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x3A, I2C_MEMADD_SIZE_8BIT, FIFO_status, 2, 200);
+		if(i2c_read(imu->i2c, IMU_ADDRESS, 0x3A, FIFO_status, 2) != HAL_OK) { return 0; }
 
 		uint8_t FIFO_full = FIFO_status[1] & 0b00100000; //FIFO will be full in one read
 		if (FIFO_full) {
@@ -167,7 +167,8 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 			break;
 		} //exit condition
 		uint16_t current_chunk = min_u16(words_to_read, CHUNK); //don't read more than we have
-		HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x78, I2C_MEMADD_SIZE_8BIT, FIFO_data, current_chunk * BYTES_PER_WORD, 200); //auto wraps around so we can just burst read
+		//auto wraps around so we can just burst read
+		if(i2c_read(imu->i2c, IMU_ADDRESS, 0x78, FIFO_data, current_chunk * BYTES_PER_WORD) != HAL_OK) { return 0; }
 		words_read += current_chunk;
 
 		//process data (tag, timestamp, turn high+low of each measurement to one number)
