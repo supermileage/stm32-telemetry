@@ -58,7 +58,8 @@
 									<listOptionValue builtIn="false" value="../../lib/fatfs"/>
 									<listOptionValue builtIn="false" value="../../lib"/>
 									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi"/>
-									<listOptionValue builtIn="false" value="../App"/>
+									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi/fatfs"/>
+									<listOptionValue builtIn="false" value="../app"/>
 									<listOptionValue builtIn="false" value="../BSP"/>
 									<listOptionValue builtIn="false" value="../BSP/b_u585i_iot02a"/>
 									<listOptionValue builtIn="false" value="../Core/Inc"/>
@@ -86,7 +87,8 @@
 									<listOptionValue builtIn="false" value="../../lib/fatfs"/>
 									<listOptionValue builtIn="false" value="../../lib"/>
 									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi"/>
-									<listOptionValue builtIn="false" value="../App"/>
+									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi/fatfs"/>
+									<listOptionValue builtIn="false" value="../app"/>
 									<listOptionValue builtIn="false" value="../BSP"/>
 									<listOptionValue builtIn="false" value="../BSP/b_u585i_iot02a"/>
 									<listOptionValue builtIn="false" value="../Core/Inc"/>
@@ -130,7 +132,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry excluding="sd_card/upstream|fatfs/upstream" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Lib"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="App"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="app"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="BSP"/>
 						<entry excluding="Src/Backup|Inc/Backup" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares"/>
@@ -193,7 +195,8 @@
 									<listOptionValue builtIn="false" value="../../lib/fatfs"/>
 									<listOptionValue builtIn="false" value="../../lib"/>
 									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi"/>
-									<listOptionValue builtIn="false" value="../App"/>
+									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi/fatfs"/>
+									<listOptionValue builtIn="false" value="../app"/>
 									<listOptionValue builtIn="false" value="../BSP"/>
 									<listOptionValue builtIn="false" value="../BSP/b_u585i_iot02a"/>
 									<listOptionValue builtIn="false" value="../Core/Inc"/>
@@ -220,7 +223,8 @@
 									<listOptionValue builtIn="false" value="../../lib/fatfs"/>
 									<listOptionValue builtIn="false" value="../../lib"/>
 									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi"/>
-									<listOptionValue builtIn="false" value="../App"/>
+									<listOptionValue builtIn="false" value="../../lib/drivers/sd_spi/fatfs"/>
+									<listOptionValue builtIn="false" value="../app"/>
 									<listOptionValue builtIn="false" value="../BSP"/>
 									<listOptionValue builtIn="false" value="../BSP/b_u585i_iot02a"/>
 									<listOptionValue builtIn="false" value="../Core/Inc"/>
@@ -264,7 +268,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry excluding="sd_card/upstream|fatfs/upstream" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Lib"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="App"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="app"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="BSP"/>
 						<entry excluding="Src/Backup|Inc/Backup" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middlewares"/>

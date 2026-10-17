@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct { int id; } SPI_TypeDef;
 typedef struct { int id; } GPIO_TypeDef;
 extern SPI_TypeDef mock_spi1, mock_spi2, mock_spi3;
@@ -15,7 +19,12 @@ typedef struct {
     uint32_t NSS, TIMode, CRCCalculation, BaudRatePrescaler, NSSPMode;
     uint32_t MasterKeepIOState;
 } SPI_InitTypeDef;
-typedef struct { SPI_TypeDef *Instance; SPI_InitTypeDef Init; } SPI_HandleTypeDef;
+typedef enum { HAL_SPI_STATE_RESET, HAL_SPI_STATE_READY, HAL_SPI_STATE_BUSY } HAL_SPI_StateTypeDef;
+typedef struct {
+    SPI_TypeDef *Instance;
+    SPI_InitTypeDef Init;
+    HAL_SPI_StateTypeDef State;
+} SPI_HandleTypeDef;
 typedef enum { HAL_OK, HAL_ERROR, HAL_BUSY, HAL_TIMEOUT } HAL_StatusTypeDef;
 typedef enum { GPIO_PIN_RESET, GPIO_PIN_SET } GPIO_PinState;
 
@@ -49,5 +58,9 @@ void HAL_GPIO_WritePin(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state);
 uint32_t HAL_GetTick(void);
 void HAL_Delay(uint32_t delay);
 uint32_t HAL_RCCEx_GetPeriphCLKFreq(uint64_t clock);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

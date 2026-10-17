@@ -8,37 +8,54 @@ target_include_directories(host_fatfs SYSTEM PUBLIC "${_libraries}/fatfs")
 add_subdirectory("${_libraries}/drivers/sd_spi" "${CMAKE_CURRENT_BINARY_DIR}/sd_spi")
 target_link_libraries(sd_spi PRIVATE telemetry_warnings)
 add_executable(sd_spi_tests sd_spi/test_sd_spi.c
-    "${_firmware}/BSP/sd_spi_port.c"
-    "${_firmware}/BSP/b_u585i_iot02a/board_sd.c"
-    "${_firmware}/App/storage/sd_diskio.c" "${_firmware}/App/storage/storage.c"
-    "${_firmware}/App/logging/log_file.c")
+    "${_firmware}/BSP/sd_spi_port.cpp"
+    "${_firmware}/BSP/b_u585i_iot02a/board_sd.cpp"
+    "${_libraries}/drivers/sd_spi/fatfs/sd_diskio.c"
+    "${_firmware}/app/storage/storage.c"
+    "${_firmware}/app/logging/log_file.c")
 target_include_directories(sd_spi_tests PRIVATE sd_spi "${_libraries}"
+    "${_libraries}/drivers/sd_spi/fatfs"
     "${_firmware}/BSP" "${_firmware}/BSP/b_u585i_iot02a"
-    "${_firmware}/App/storage" "${_firmware}/App/logging")
+    "${_firmware}/app/storage" "${_firmware}/app/logging")
 target_link_libraries(sd_spi_tests PRIVATE sd_spi host_fatfs telemetry_warnings)
+target_compile_features(sd_spi_tests PRIVATE cxx_std_17)
+set_target_properties(sd_spi_tests PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_options(sd_spi_tests PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions;-fno-rtti>)
 add_test(NAME sd_spi_and_fatfs COMMAND sd_spi_tests)
 
 add_executable(sd_port_tests sd_spi/test_port_callbacks.c)
 target_link_libraries(sd_port_tests PRIVATE sd_spi telemetry_warnings)
 add_test(NAME sd_port_callbacks COMMAND sd_port_tests)
 
+add_executable(sd_cpp_port_tests sd_spi/test_sd_spi_port.cpp
+    "${_firmware}/BSP/sd_spi_port.cpp"
+    "${_firmware}/BSP/b_u585i_iot02a/board_sd.cpp")
+target_include_directories(sd_cpp_port_tests PRIVATE sd_spi
+    "${_libraries}/drivers/sd_spi" "${_firmware}/BSP" "${_firmware}/BSP/b_u585i_iot02a")
+target_compile_features(sd_cpp_port_tests PRIVATE cxx_std_17)
+set_target_properties(sd_cpp_port_tests PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_options(sd_cpp_port_tests PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
+target_link_libraries(sd_cpp_port_tests PRIVATE sd_spi telemetry_warnings)
+add_test(NAME sd_spi_port_cpp COMMAND sd_cpp_port_tests)
+
 add_executable(logger_tests logging/test_logger.c logging/rtos_mock.c
-    "${_firmware}/App/logging/logger.c")
-target_include_directories(logger_tests PRIVATE logging "${_firmware}/App/logging")
+    "${_firmware}/app/logging/logger.c")
+target_include_directories(logger_tests PRIVATE logging "${_firmware}/app/logging")
 target_link_libraries(logger_tests PRIVATE host_fatfs telemetry_warnings)
 add_test(NAME logger_queue COMMAND logger_tests)
 add_test(NAME logger_error_state COMMAND logger_tests failure)
 
-add_executable(log_file_tests logging/test_log_file.c "${_firmware}/App/logging/log_file.c")
-target_include_directories(log_file_tests PRIVATE "${_firmware}/App/logging"
+add_executable(log_file_tests logging/test_log_file.c "${_firmware}/app/logging/log_file.c")
+target_include_directories(log_file_tests PRIVATE "${_firmware}/app/logging"
     "${_libraries}/fatfs")
 target_link_libraries(log_file_tests PRIVATE telemetry_warnings)
 add_test(NAME log_file_failures COMMAND log_file_tests)
 
 add_executable(storage_task_tests logging/test_storage_task.c logging/rtos_mock.c
-    "${_firmware}/App/logging/logger.c" "${_firmware}/App/storage/storage_task.c")
-target_include_directories(storage_task_tests PRIVATE logging "${_firmware}/App"
-    "${_firmware}/App/logging")
+    "${_firmware}/app/logging/logger.c" "${_firmware}/app/storage/storage_task.c")
+target_include_directories(storage_task_tests PRIVATE logging "${_firmware}/app"
+    "${_firmware}/app/logging")
 target_link_libraries(storage_task_tests PRIVATE host_fatfs telemetry_warnings)
 foreach(_scenario IN ITEMS normal flush idle mount_failure verify_failure open_failure
         append_failure sync_failure close_failure unmount_failure task_failure

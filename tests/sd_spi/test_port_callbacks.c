@@ -22,9 +22,20 @@ static bool set_speed(uint32_t maximum_hz)
     return !fail_speed;
 }
 
-static void chip_select(bool active) { selected = active; }
-static uint32_t get_tick_ms(void) { return tick; }
-static void delay_ms(uint32_t delay) { tick += delay; }
+static void chip_select(bool active)
+{
+    selected = active;
+}
+
+static uint32_t get_tick_ms(void)
+{
+    return tick;
+}
+
+static void delay_ms(uint32_t delay)
+{
+    tick += delay;
+}
 
 int main(void)
 {
@@ -37,11 +48,21 @@ int main(void)
     for (unsigned int missing = 0U; missing < 5U; ++missing) {
         sd_spi_port_t incomplete = callbacks;
         switch (missing) {
-        case 0U: incomplete.exchange = NULL; break;
-        case 1U: incomplete.set_speed = NULL; break;
-        case 2U: incomplete.chip_select = NULL; break;
-        case 3U: incomplete.get_tick_ms = NULL; break;
-        case 4U: incomplete.delay_ms = NULL; break;
+        case 0U:
+            incomplete.exchange = NULL;
+            break;
+        case 1U:
+            incomplete.set_speed = NULL;
+            break;
+        case 2U:
+            incomplete.chip_select = NULL;
+            break;
+        case 3U:
+            incomplete.get_tick_ms = NULL;
+            break;
+        case 4U:
+            incomplete.delay_ms = NULL;
+            break;
         }
         assert(!sd_spi_bind(&incomplete));
         assert(sd_spi_initialize() == SD_NOT_READY && transfers == 0U);

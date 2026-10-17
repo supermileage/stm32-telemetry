@@ -5,9 +5,19 @@ option(TELEMETRY_BUILD_FIRMWARE "Build the STM32U585 firmware" ON)
 option(TELEMETRY_SD_HELLO_TEST "Run the one-shot SD Hello World test" OFF)
 option(BUILD_TESTING "Build native host tests" OFF)
 option(TELEMETRY_WARNINGS_AS_ERRORS "Treat application warnings as errors" ON)
+option(TELEMETRY_BUILD_DOCS "Enable the application and BSP API documentation target" OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 get_filename_component(TELEMETRY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(LIB_ROOT "${TELEMETRY_ROOT}/lib")
+
+if(TELEMETRY_BUILD_DOCS)
+    find_package(Doxygen 1.9.8 REQUIRED COMPONENTS doxygen)
+    add_custom_target(docs
+        COMMAND Doxygen::doxygen "${TELEMETRY_ROOT}/Doxyfile"
+        WORKING_DIRECTORY "${TELEMETRY_ROOT}"
+        COMMENT "Generating application and BSP API documentation"
+        VERBATIM)
+endif()
 
 add_library(telemetry_warnings INTERFACE)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
@@ -92,17 +102,15 @@ add_subdirectory("${LIB_ROOT}/drivers/sd_spi" "${CMAKE_CURRENT_BINARY_DIR}/sd_sp
 target_link_libraries(sd_spi PRIVATE stm32_platform telemetry_warnings)
 
 add_library(telemetry_app STATIC
-    App/app.cpp
-    App/logging/logger.c App/logging/log_file.c
-    App/storage/storage.c App/storage/storage_task.c App/storage/sd_diskio.c
-    BSP/b_u585i_iot02a/board_sd.c BSP/sd_spi_port.c)
+    app/app.cpp
+    BSP/b_u585i_iot02a/board_sd.cpp BSP/sd_spi_port.cpp)
 
 target_compile_features(telemetry_app PRIVATE cxx_std_17)
 set_target_properties(telemetry_app PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_options(telemetry_app PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
     $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-target_include_directories(telemetry_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App"
+target_include_directories(telemetry_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/app"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/BSP/b_u585i_iot02a" "${CMAKE_CURRENT_SOURCE_DIR}/BSP")
 target_link_libraries(telemetry_app PUBLIC freertos sd_spi fatfs PRIVATE telemetry_warnings)
 

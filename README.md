@@ -1,15 +1,16 @@
 # UBC Supermileage Telemetry
 
-UBC Supermileage's vehicle telemetry system uses an STM32U585 to collect
-vehicle sensor data and save it to an SD card.
+Firmware for UBC Supermileage's STM32U585 telemetry system. The goal is to
+collect vehicle sensor data and save it to an SD card.
 
-Project plans and timelines are in the
-[telemetry plan](https://app.notion.com/p/Vehicle-Telemetry-System-3ee7e02c955f806296e9d68eaa08e37a)
-and [division plan](https://app.notion.com/p/Software-Embedded-Division-Project-Plan-2026-2027-3bb7e02c955f80a282bec8cfb8830d0f).
+The current firmware configures the SD card's SPI interface and starts the
+FreeRTOS scheduler. The C storage and logging modules have host tests, but
+are not connected to application startup or included in the CMake firmware
+target yet. Sensor acquisition is still being developed.
 
-## Getting started
+## Build and run
 
-Install Git, then clone the repository and initialize its library submodules:
+Clone the repository and initialize its library submodules:
 
 ```bash
 git clone https://github.com/supermileage/stm32telemetry.git stm32-telemetry
@@ -17,26 +18,49 @@ cd stm32-telemetry
 git submodule update --init --recursive
 ```
 
-If you already cloned the repository, run the submodule command from its root.
+For the B-U585I-IOT02A board, install CMake 3.25+, Ninja, and the GNU Arm
+toolchain. Put the Arm tools on PATH, or set `ARM_TOOLCHAIN_BIN` to their
+`bin` directory. From the repository root:
 
-Follow the [firmware guide](firmware/README.md) to build and flash the board.
+```bash
+cd firmware
+cmake --preset debug
+cmake --build --preset debug
+```
 
-## Project structure
+The output is `build/debug/stm32_telemetry.elf`, `.hex`, and `.bin` at the
+repository root. Use the `release` preset for an optimized build. Connect
+through the board's ST-LINK USB port (CN8) and use STM32CubeProgrammer to
+write the `.bin` at `0x08000000`, then reset the board. The
+[firmware guide](firmware/README.md) also covers building and flashing in CubeIDE.
+
+To run the host tests, install native GCC (`gcc` and `g++`) and run from
+`firmware/`:
+
+```bash
+cmake --preset host-tests
+cmake --build --preset host-tests
+ctest --preset host-tests
+```
+
+## How it works
+
+The C++ BSP connects the portable C SD driver to STM32 SPI and GPIO. The
+storage task, once connected to startup, mounts the card through FatFs,
+checks a text file, and opens a binary log. Producers copy records into a
+64-command queue; the task buffers writes, syncs periodically, and rotates
+files at 64 MiB. A full queue rejects the newest submission. See the
+[logging guide](firmware/app/logging/README.md) for the API and shutdown sequence.
 
 | Folder | Contents |
 | --- | --- |
-| [firmware/](firmware/README.md) | Main telemetry firmware |
+| [firmware/](firmware/README.md) | Main firmware and board support |
 | [lib/](lib/README.md) | Shared drivers and dependencies |
-| [tests/](tests/README.md) | Unit and integration tests that run on a PC |
-| [docs/](docs/architecture.md) | Firmware architecture and other technical documentation |
-| [SubProjects/](SubProjects/README.md) | Separate projects for prototyping and testing |
+| [tests/](tests/README.md) | Host tests with simulated hardware |
+| [docs/](docs/architecture.md) | Architecture, hardware, and log format |
+| [SubProjects/](SubProjects/README.md) | Separate board experiments |
 
-## Releases
-
-See [how to make a release](release.md).
-
-## Next steps
-
-- [ ] Read the onboard IMU.
-- [ ] Verify SD logging on the board and in the car.
-- [ ] Complete the telemetry MVP.
+Project plans are in the
+[telemetry plan](https://app.notion.com/p/Vehicle-Telemetry-System-3ee7e02c955f806296e9d68eaa08e37a)
+and [division plan](https://app.notion.com/p/Software-Embedded-Division-Project-Plan-2026-2027-3bb7e02c955f80a282bec8cfb8830d0f).
+See [release.md](release.md) for the release process.

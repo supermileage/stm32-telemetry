@@ -1,7 +1,7 @@
 # Binary logging format
 
-Version 1 logs are written by `firmware/App/logging/log_file.c` and decoded
-by `tools/log_decoder.py`. All integer fields are unsigned and little endian.
+Version 1 logs are written by `firmware/app/logging/log_file.c`.
+All integer fields are unsigned and little endian.
 Files are named `LOG00000.BIN` through `LOG99999.BIN`; existing files are
 not overwritten. Each new file starts with its own header.
 
@@ -15,8 +15,8 @@ not overwritten. Each new file starts with its own header.
 | 8 | 4 | Timestamp frequency: 1000 Hz |
 | 12 | 4 | Reserved: zero |
 
-The header is 16 bytes and has no checksum. The decoder requires all values
-above to match before reading records.
+The header is 16 bytes and has no checksum. A reader should validate these
+values before reading records.
 
 ## Record frame
 
@@ -44,16 +44,13 @@ explicitly; C struct layout is not a disk format. Timestamps wrap after
 The writer buffers 4096 bytes, rotates before exceeding 64 MiB, and syncs
 periodically. A successful queue submission is not a persistence guarantee;
 use logger status and the stop sequence in the
-[logging API](../firmware/App/logging/README.md).
+[logging API](../firmware/app/logging/README.md).
 
-From the repository root, replace the example path with your log file:
+`tools/log_decoder.py` is missing from this checkout. The existing
+`tests/logging/test_decode_log.py` defines the expected reader behavior:
+validate the header, reject invalid lengths and CRCs, and stop at a corrupt
+or truncated frame while retaining earlier valid records. A valid header
+with no following records represents an empty log.
 
-```bash
-python tools/log_decoder.py path/to/LOG00000.BIN -o telemetry.csv
-```
-
-CSV columns are `timestamp_ms`, `source`, and `payload_hex`. A bad header,
-invalid length, CRC mismatch, or truncated frame stops decoding with exit
-code 1. Previously exported valid records remain in the CSV. An empty stream
-after a valid file header is a valid file with zero records. The decoder
-does not skip damaged frames or repair the filesystem.
+The planned CSV fields are `timestamp_ms`, `source`, and `payload_hex`.
+There is no decoder command to run until the script is restored or implemented.

@@ -25,14 +25,18 @@ int main(int argc, char **argv)
     BaseType_t woken = pdFALSE;
     assert(logger_submit_from_isr(&record, &woken) && woken == pdTRUE);
     assert(!logger_submit_from_isr(&record, NULL));
-    for (unsigned int i = 1; i < LOGGER_QUEUE_DEPTH; ++i) assert(logger_submit(&record));
+    for (unsigned int i = 1; i < LOGGER_QUEUE_DEPTH; ++i) {
+        assert(logger_submit(&record));
+    }
     assert(!logger_submit(&record));
     assert(!logger_submit_from_isr(&record, &woken));
     assert(!logger_request_flush());
     assert(!logger_request_stop());
     logger_get_status(&status);
     assert(status.state == LOGGER_STARTING && status.queued_commands == LOGGER_QUEUE_DEPTH);
-    while (logger_receive(&command, 0U)) logger_worker_processed("0:/LOG00000.BIN");
+    while (logger_receive(&command, 0U)) {
+        logger_worker_processed("0:/LOG00000.BIN");
+    }
     assert(logger_request_flush());
     assert(logger_submit(&record));
     assert(logger_request_stop());

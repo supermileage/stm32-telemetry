@@ -14,24 +14,42 @@ FRESULT f_open(FIL *file, const TCHAR *path, BYTE mode)
 {
     (void)file;
     assert(mode == (FA_WRITE | FA_CREATE_NEW));
-    if (collisions != 0U) { --collisions; return FR_EXIST; }
+    if (collisions != 0U) {
+        --collisions;
+        return FR_EXIST;
+    }
     strcpy(opened_path, path);
     output_size = 0;
     return FR_OK;
 }
+
 FRESULT f_write(FIL *file, const void *data, UINT count, UINT *written)
 {
     (void)file;
     ++writes;
     *written = short_write ? count / 2U : count;
-    if (write_error != FR_OK) *written = 0;
+    if (write_error != FR_OK) {
+        *written = 0;
+    }
     assert(output_size + *written <= sizeof(output));
     memcpy(output + output_size, data, *written);
     output_size += *written;
     return write_error;
 }
-FRESULT f_sync(FIL *file) { (void)file; ++syncs; return sync_error; }
-FRESULT f_close(FIL *file) { (void)file; ++closes; return close_error; }
+
+FRESULT f_sync(FIL *file)
+{
+    (void)file;
+    ++syncs;
+    return sync_error;
+}
+
+FRESULT f_close(FIL *file)
+{
+    (void)file;
+    ++closes;
+    return close_error;
+}
 
 int main(void)
 {
@@ -47,7 +65,9 @@ int main(void)
     assert(log_file_append(&log, &record) == FR_OK);
     assert(output_size == 16);
     assert(log_file_sync(&log) == FR_OK && output_size == 35);
-    const uint8_t prefix[] = {'R','E','C','1',0x78,0x56,0x34,0x12,0x34,0x12,3,0,1,2,3};
+    const uint8_t prefix[] = {
+        'R', 'E', 'C', '1', 0x78, 0x56, 0x34, 0x12, 0x34, 0x12, 3, 0, 1, 2, 3
+    };
     assert(memcmp(output + 16, prefix, sizeof(prefix)) == 0);
     /* Independently computed CRC-32/ISO-HDLC (Python zlib reference). */
     const uint8_t checksum[] = {0xE9, 0xAB, 0xDA, 0xF9};
@@ -59,7 +79,9 @@ int main(void)
     assert(log_file_append(&log, &record) == FR_INVALID_OBJECT);
     assert(log_file_close(&log) == FR_OK);
     assert(log_file_open(&log) == FR_OK);
-    for (unsigned int i = 0; i < 300; ++i) assert(log_file_append(&log, &record) == FR_OK);
+    for (unsigned int i = 0; i < 300; ++i) {
+        assert(log_file_append(&log, &record) == FR_OK);
+    }
     assert(output_size > 16);
     assert(log_file_close(&log) == FR_OK && output_size == 16U + 300U * 19U);
     assert(log_file_open(&log) == FR_OK);

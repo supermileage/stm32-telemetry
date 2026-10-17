@@ -22,17 +22,17 @@ SPI1 is dedicated to the storage task. The driver uses mode 0, 8-bit,
 MSB-first transfers and software chip select. With the configured 16 MHz
 SPI1 kernel clock it initializes at 250 kHz, then transfers at 4 MHz.
 The driver derives dividers from the actual clock if that configuration changes.
-`BSP/b_u585i_iot02a/board_sd.c` binds `hspi1` and the CS pin to the SD driver.
+`BSP/b_u585i_iot02a/board_sd.cpp` binds `hspi1` and the CS pin to the SD driver.
 
-See [the physical card test](sd_hello_test.md) and
-[storage diagnostics](../firmware/App/storage/README.md).
+See [storage diagnostics](../firmware/app/storage/README.md) for the file check
+and the remaining startup integration work.
 
 ## IMU and planned interfaces
 
-The independent `SubProjects/imu_test` experiment accesses the onboard
+The independent `SubProjects/B-U5-RTOS-IMU` experiment configures the onboard
 ISM330DHCX through I2C2 at 7-bit address `0x6B`. Main firmware sampling and a
 reusable driver are not integrated yet. See its
-[register notes](../SubProjects/imu_test/README.md).
+[register notes](../SubProjects/B-U5-RTOS-IMU/README.md).
 
 No GNSS receiver or wireless telemetry transport is integrated. Configure
 their wiring and peripheral bindings before adding communication tasks.

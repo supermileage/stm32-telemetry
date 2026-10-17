@@ -12,14 +12,16 @@ timestamps are disabled. The original licenses are kept alongside the code.
 
 ## SD connection
 
-ST's `diskio.c` dispatches requests to the callbacks registered by
-`App/storage/sd_diskio.c`. Register before mounting and allow four bytes for
-the drive path, including its terminator. Use the supplied dispatcher as the
-single implementation of `disk_*`.
+ST's `diskio.c` dispatches requests through the optional
+[SD SPI adapter](../drivers/sd_spi/fatfs/README.md) in
+`lib/drivers/sd_spi/fatfs/sd_diskio.c`. Register before mounting and allow four
+bytes for the drive path, including its terminator. Use the supplied dispatcher
+as the single implementation of `disk_*`. Board configuration and application
+mount policy are outside this adapter.
 
 The storage task owns all FatFs calls because `_FS_REENTRANT = 0`. Sensor
-tasks submit records through the [logger](../../firmware/App/logging/README.md).
-For wiring and build setup, see [storage](../../firmware/App/storage/README.md).
+tasks submit records through the [logger](../../firmware/app/logging/README.md).
+For wiring and build setup, see [storage](../../firmware/app/storage/README.md).
 
 CubeIDE links the root `lib` folder as `Lib` and uses `../../lib/fatfs` from
 the build directories. Refresh the project after changing `.project` or

@@ -15,7 +15,6 @@ SPI_HandleTypeDef hspi1;
 extern Disk_drvTypeDef disk;
 #define spi hspi1
 
-
 /* A byte-level SD model: commands, streamed sectors, write tokens and busy time. */
 static struct {
     uint32_t tick, clock, transfers, high_clocks, command_count[64], arguments[64];
@@ -61,7 +60,7 @@ static void enqueue_sector(void)
         return;
     }
     assert(model.read_sector < 8192);
-    enqueue(0xFF); /* Nac delay before the data token. */
+    enqueue(0xFF); /* Read-access delay before the data token. */
     enqueue(0xFE);
     for (size_t i = 0; i < 512; ++i) {
         enqueue(model.memory[model.read_sector][i]);
@@ -95,7 +94,9 @@ static void handle_command(void)
         assert(argument == 0x1AA);
         enqueue(model.wrong_cmd8_response ? 2 : model.legacy ? 5 : 1);
         if (!model.legacy && !model.wrong_cmd8_response) {
-            enqueue(0); enqueue(0); enqueue(1);
+            enqueue(0);
+            enqueue(0);
+            enqueue(1);
             enqueue(model.wrong_echo ? 0xAB : 0xAA);
         }
         break;
@@ -112,7 +113,9 @@ static void handle_command(void)
     case 58:
         enqueue(0);
         enqueue((model.ocr_not_ready ? 0 : 0x80) | (model.block_addressed ? 0x40 : 0));
-        enqueue(0xFF); enqueue(0x80); enqueue(0);
+        enqueue(0xFF);
+        enqueue(0x80);
+        enqueue(0);
         break;
     case 16:
         assert(argument == 512 && !model.block_addressed);
@@ -124,11 +127,18 @@ static void handle_command(void)
             csd[0] = 0x40;
             csd[9] = 7; /* (C_SIZE + 1) * 1024 = 8192 sectors. */
         } else {
-            csd[5] = 9; csd[6] = 1; csd[7] = 0xFF; csd[8] = 0xC0;
+            csd[5] = 9;
+            csd[6] = 1;
+            csd[7] = 0xFF;
+            csd[8] = 0xC0;
         }
-        enqueue(0); enqueue(0xFE);
-        for (size_t i = 0; i < sizeof(csd); ++i) enqueue(csd[i]);
-        enqueue(0x12); enqueue(0x34);
+        enqueue(0);
+        enqueue(0xFE);
+        for (size_t i = 0; i < sizeof(csd); ++i) {
+            enqueue(csd[i]);
+        }
+        enqueue(0x12);
+        enqueue(0x34);
         break;
     }
     case 23:
@@ -272,8 +282,16 @@ void HAL_GPIO_WritePin(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state)
     }
 }
 
-uint32_t HAL_GetTick(void) { return model.tick; }
-void HAL_Delay(uint32_t delay) { model.tick += delay; }
+uint32_t HAL_GetTick(void)
+{
+    return model.tick;
+}
+
+void HAL_Delay(uint32_t delay)
+{
+    model.tick += delay;
+}
+
 uint32_t HAL_RCCEx_GetPeriphCLKFreq(uint64_t clock)
 {
     assert(clock == RCC_PERIPHCLK_SPI1);
@@ -289,7 +307,7 @@ static void reset_model(bool legacy, bool block_addressed)
         .CLKPolarity = SPI_POLARITY_LOW, .CLKPhase = SPI_PHASE_1EDGE,
         .NSS = SPI_NSS_SOFT, .TIMode = SPI_TIMODE_DISABLE,
         .CRCCalculation = SPI_CRCCALCULATION_DISABLE, .NSSPMode = 1
-    }};
+    }, .State = HAL_SPI_STATE_READY};
     model.clock = 16000000;
     model.legacy = legacy;
     model.block_addressed = block_addressed;
@@ -306,39 +324,60 @@ static bool initialize(void)
     return sd_spi_port_bind(&spi, &gpio, 1U << 12) && sd_spi_initialize() == SD_OK;
 }
 
-static bool ready(void) { return sd_spi_is_ready(); }
+static bool ready(void)
+{
+    return sd_spi_is_ready();
+}
+
 static bool read_sectors(uint32_t sector, uint8_t *buffer, uint32_t count)
 {
     return sd_spi_read(sector, buffer, count) == SD_OK;
 }
+
 static bool write_sectors(uint32_t sector, const uint8_t *buffer, uint32_t count)
 {
     return sd_spi_write(sector, buffer, count) == SD_OK;
 }
-static bool sync_card(void) { return sd_spi_sync() == SD_OK; }
+
+static bool sync_card(void)
+{
+    return sd_spi_sync() == SD_OK;
+}
 
 static void put16(uint8_t *p, uint16_t value)
 {
-    p[0] = (uint8_t)value; p[1] = (uint8_t)(value >> 8);
+    p[0] = (uint8_t)value;
+    p[1] = (uint8_t)(value >> 8);
 }
 
 static void format_mock_fat16(void)
 {
     memset(model.memory, 0, sizeof(model.memory));
     uint8_t *boot = model.memory[0];
-    boot[0] = 0xEB; boot[1] = 0x3C; boot[2] = 0x90;
+    boot[0] = 0xEB;
+    boot[1] = 0x3C;
+    boot[2] = 0x90;
     memcpy(boot + 3, "SDMOCK  ", 8);
-    put16(boot + 11, 512); boot[13] = 1;
-    put16(boot + 14, 1); boot[16] = 2;
-    put16(boot + 17, 512); put16(boot + 19, 8192);
-    boot[21] = 0xF8; put16(boot + 22, 32);
-    put16(boot + 24, 32); put16(boot + 26, 64);
-    boot[36] = 0x80; boot[38] = 0x29;
+    put16(boot + 11, 512);
+    boot[13] = 1;
+    put16(boot + 14, 1);
+    boot[16] = 2;
+    put16(boot + 17, 512);
+    put16(boot + 19, 8192);
+    boot[21] = 0xF8;
+    put16(boot + 22, 32);
+    put16(boot + 24, 32);
+    put16(boot + 26, 64);
+    boot[36] = 0x80;
+    boot[38] = 0x29;
     memcpy(boot + 43, "SD TEST    ", 11);
     memcpy(boot + 54, "FAT16   ", 8);
-    boot[510] = 0x55; boot[511] = 0xAA;
-    put16(model.memory[1], 0xFFF8); put16(model.memory[1] + 2, 0xFFFF);
-    put16(model.memory[33], 0xFFF8); put16(model.memory[33] + 2, 0xFFFF);
+    boot[510] = 0x55;
+    boot[511] = 0xAA;
+    put16(model.memory[1], 0xFFF8);
+    put16(model.memory[1] + 2, 0xFFFF);
+    put16(model.memory[33], 0xFFF8);
+    put16(model.memory[33] + 2, 0xFFFF);
 }
 
 static void assert_released(void)
@@ -410,7 +449,7 @@ int main(void)
 
     reset_model(false, true);
     model.ocr_not_ready = true;
-    assert(!initialize() && !ready() && model.init_calls == 1U);
+    assert(!initialize() && !ready() && model.init_calls == 2U);
     assert_released();
 
     reset_model(false, true);
@@ -419,7 +458,7 @@ int main(void)
     assert_released();
 
     reset_model(false, true);
-    model.fail_init_call = 2; /* Failure when switching to transfer speed. */
+    model.fail_init_call = 3; /* Bind, slow initialization clock, then transfer speed. */
     assert(!initialize() && !ready());
     assert_released();
 
@@ -530,7 +569,9 @@ int main(void)
         .length = 4, .payload = {0x01, 0x02, 0x03, 0x04} };
     assert(log_file_open(&log) == FR_OK);
     assert(strcmp(log.path, "0:/LOG00000.BIN") == 0);
-    for (unsigned int i = 0; i < 300; ++i) assert(log_file_append(&log, &record) == FR_OK);
+    for (unsigned int i = 0; i < 300; ++i) {
+        assert(log_file_append(&log, &record) == FR_OK);
+    }
     assert(log_file_sync(&log) == FR_OK);
     assert(log_file_close(&log) == FR_OK);
     assert(f_stat(log.path, &info) == FR_OK && info.fsize == 16U + 300U * 20U);

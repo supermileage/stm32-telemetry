@@ -1,16 +1,12 @@
-## Overview
-Projects made to support the development of the main one. Mainly prototyping/testing certain parts before integrating them into the entire system.
+# Board experiments
 
-## Naming
-The project names should follow identifier-environemnt-description naming scheme to make them easy to identify
+These projects test individual pieces before they move into the main firmware.
+Import each project directory into STM32CubeIDE and build or debug it through
+the board's ST-LINK connection.
 
-Identifier for board or MCU
-- B-U5 = B-U585I-IOT02A discovery kit
+- [B-U5-RTOS-Blink](B-U5-RTOS-Blink/README.md): blink the green LED from a FreeRTOS task.
+- [B-U5-RTOS-IMU](B-U5-RTOS-IMU/README.md): configure the onboard IMU over I2C.
 
-Environment
-- RTOS
-- Bare metal
-
-Project description
-- Short, but distinctive
-- Sensor name
+Name new projects `<board>-<environment>-<description>`. `B-U5` means the
+B-U585I-IOT02A board; use a short description such as a sensor name. Keep
+prototype code here until it is ready to join the main application.

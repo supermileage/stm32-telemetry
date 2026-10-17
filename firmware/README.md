@@ -1,25 +1,23 @@
 # Firmware
 
-STM32U585 firmware for the B-U585I-IOT02A development board, built with FreeRTOS.
+STM32U585 firmware for the B-U585I-IOT02A board, using FreeRTOS. Application
+startup and board support use C++17 with exceptions and RTTI disabled.
+Generated code, HAL, FreeRTOS, FatFs, and the SD protocol driver remain C.
 
-## Building and flashing
+## Build and flash
 
-### STM32CubeIDE
+Initialize the submodules as described in the [repository setup](../README.md#build-and-run).
 
-1. Open STM32CubeIDE and import the `firmware/` directory using **File > Import > General > Existing Projects into Workspace**.
-2. Build the project using **Project > Build Project**.
-3. Connect the board to your computer through the ST-LINK USB port (CN8).
-4. Right-click the project and select **Run As > STM32 C/C++ Application** to flash the board, or **Debug As > STM32 C/C++ Application** to start debugging.
+In STM32CubeIDE:
 
-STM32CubeMX is used to configure peripherals and generate initialization code, while STM32CubeIDE handles building, flashing, and debugging.
+1. Import `firmware/` using **File > Import > General > Existing Projects into Workspace**.
+2. Select Debug or Release and use **Project > Build Project**.
+3. Connect the board through its ST-LINK USB port (CN8).
+4. Select **Run As > STM32 C/C++ Application** to flash, or **Debug As** to debug.
 
-### Command line (CMake)
-
-You'll need CMake 3.25+, Ninja, and the GNU Arm toolchain (`arm-none-eabi-gcc`).
-
-Make sure the compiler is available in your `PATH`, or set `ARM_TOOLCHAIN_BIN` to its `bin` directory.
-
-From the repository root:
+For CMake, install CMake 3.25+, Ninja, and the GNU Arm toolchain. Put
+`arm-none-eabi-gcc` and the other Arm tools on PATH, or set `ARM_TOOLCHAIN_BIN`
+to their `bin` directory. From the repository root:
 
 ```bash
 cd firmware
@@ -27,25 +25,35 @@ cmake --preset debug
 cmake --build --preset debug
 ```
 
-Build outputs are placed in `build/debug/` at the repository root. For an optimized build, replace `debug` with `release`.
+Outputs go to `build/debug/` at the repository root. Replace `debug` with
+`release` for an optimized build. Flash `stm32_telemetry.bin` to `0x08000000`
+using STM32CubeProgrammer and ST-LINK, then reset the board.
 
-To flash the firmware, use STM32CubeProgrammer with ST-LINK and write `build/debug/stm32_telemetry.bin` to address `0x08000000`. Reset the board after flashing.
+## Current behavior
 
-## Project structure
+`MX_FREERTOS_Init()` calls `app_init()` after peripheral setup and before the
+scheduler starts. It binds the SD driver to SPI1 and PE12, leaves CS high,
+and selects a startup clock at or below 400 kHz. A configuration failure
+enters `Error_Handler()`. Binding sends no card commands; the generated
+default task then idles under FreeRTOS.
 
-| Folder | Description |
-|---|---|
-| `Core/` | CubeMX-generated initialization and startup code |
-| `Drivers/` | STM32 HAL and CMSIS drivers |
+The C storage and logger modules are covered by [host tests](../tests/README.md),
+but startup does not call them and CMake's firmware target does not include
+their sources. The `sd-hello` preset sets `TELEMETRY_SD_HELLO_TEST`, which is
+not used by startup yet. Building that preset does not run a card test.
+
+## Source layout
+
+| Folder | Contents |
+| --- | --- |
+| `Core/` | CubeMX initialization, startup, and interrupt code |
+| `Drivers/` | STM32 HAL and CMSIS |
 | `Middlewares/` | FreeRTOS and CMSIS-RTOS |
-| `App/` | Application code, including data acquisition and logging |
-| `BSP/` | Board-specific hardware interfaces |
+| [app/](app/README.md) | Application startup, storage, and logging |
+| [BSP/](BSP/README.md) | Board wiring and HAL adapters |
 | `../lib/` | Shared drivers and libraries, linked as `Lib` in CubeIDE |
 
-## Design decisions
-
-- As HAL, CubeMX output and FreeRTOS are all in C and most embedded code is written in C it would be good to continue with it when possible. If C++ will bring large benefits then it can begin being used, especially as it's easy to add.
-	- Begin with `struct`s
-- FreeRTOS is being used to ensure data isn't dropped. Different data sources operate at different frequencies so being able to switch to logging that data from another task will ensure it isn't dropped.
-    - FreeRTOS was selected specifically due to familiarity and meets requirements
-- Heap_1 was selected for the RTOS as dynamic memory allocation does need seem necessary at the moment
+Keep generated-file edits in `USER CODE` blocks. CubeIDE and CMake have
+separate build settings; review both after CubeMX regeneration. The main
+firmware uses FreeRTOS `heap_1`, so tasks must not delete themselves. The
+storage task uses static allocation and idles after shutdown.
