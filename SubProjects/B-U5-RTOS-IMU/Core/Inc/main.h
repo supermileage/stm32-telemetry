@@ -112,6 +112,8 @@ void Error_Handler(void);
 #define USER_Button_GPIO_Port GPIOC
 #define OCTOSPI_F_IO4_Pin GPIO_PIN_9
 #define OCTOSPI_F_IO4_GPIO_Port GPIOH
+#define I2C2_SCL_Pin GPIO_PIN_4
+#define I2C2_SCL_GPIO_Port GPIOH
 #define LED_RED_Pin GPIO_PIN_6
 #define LED_RED_GPIO_Port GPIOH
 #define OCTOSPI_R_IO0_Pin GPIO_PIN_8
@@ -124,6 +126,8 @@ void Error_Handler(void);
 #define WRLS_SPI2_SCK_GPIO_Port GPIOD
 #define LED_GREEN_Pin GPIO_PIN_7
 #define LED_GREEN_GPIO_Port GPIOH
+#define I2C2_SDA_Pin GPIO_PIN_5
+#define I2C2_SDA_GPIO_Port GPIOH
 #define OCTOSPI_R_IO4_Pin GPIO_PIN_2
 #define OCTOSPI_R_IO4_GPIO_Port GPIOH
 #define T_VCP_RX_Pin GPIO_PIN_10
