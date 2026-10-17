@@ -8,8 +8,7 @@
 #include "ism330dhcx.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
-extern UART_HandleTypeDef huart1; //temp
+#include <stdio.h>
 
 //TODO: put in a file for util functions
 static inline uint16_t min_u16(uint16_t a, uint16_t b) {
@@ -128,14 +127,6 @@ void IMU_drain_fifo(imu_t *imu) {
 		}
 
 		//log data (tag, timeslot, data): xQueueSend
-
-		int len = snprintf(buffer, sizeof(buffer), "gyroscope   (mdps): x:%+04d, y:%+04d, z:%+04d\r\n", gyroscope[0], gyroscope[1], gyroscope[2]);
-		if (len >= (int)sizeof(buffer)) len = sizeof(buffer) - 1;
-		HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, 200);
-
-		len = snprintf(buffer, sizeof(buffer), "accelerometer (mg): x:%+04d, y:%+04d, z:%+04d\r\n", accelerometer[0], accelerometer[1], accelerometer[2]);
-		if (len >= (int)sizeof(buffer)) len = sizeof(buffer) - 1;
-		HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, 200);
 	}
 
 }
