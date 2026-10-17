@@ -9,6 +9,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdio.h>
+#include "log.h"
 
 //TODO: put in a file for util functions
 static inline uint16_t min_u16(uint16_t a, uint16_t b) {
@@ -85,9 +86,12 @@ void IMU_drain_fifo(imu_t *imu) {
 		HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x3A, I2C_MEMADD_SIZE_8BIT, FIFO_status, 2, 200);
 
 		uint8_t FIFO_full = FIFO_status[1] & 0b00100000; //FIFO will be full in one read
+		if(FIFO_full){
+			log_write();
+		}
 		uint8_t FIFO_overrun = FIFO_status[1] & 0b00001000; //FIFO has begun to overwrite old data as it's full
 		if (FIFO_overrun) {
-			//log it
+			log_write();
 		}
 
 		words_to_read = (uint16_t) (((FIFO_status[1] & 0b00000011) << 8) | FIFO_status[0]); //ignore first 6 bits
@@ -127,6 +131,7 @@ void IMU_drain_fifo(imu_t *imu) {
 		}
 
 		//log data (tag, timeslot, data): xQueueSend
+		log_write();
 	}
 
 }
@@ -137,7 +142,7 @@ void IMU_log_clock_pair(imu_t *imu) {
 	HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x40, I2C_MEMADD_SIZE_8BIT, timestamp_, 4, 200);
 	TickType_t current_tick = xTaskGetTickCount(); //attempt to make tick and timestamp reading as close to the same time as possible
 	uint32_t live_timestamp = combine_u8_to_u32(timestamp_[3], timestamp_[2], timestamp_[1], timestamp_[0]);
-	//log it
+	log_write();
 }
 
 //void IMU_direct_read(imu_t *imu){
