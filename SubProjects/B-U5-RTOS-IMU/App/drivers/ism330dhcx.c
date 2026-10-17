@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "log.h"
 #include "main.h"
+#include "i2c.h"
 
 //return early if HAL error, only use on functions with return type void
 #define HAL_TRY(expr) do{ \
@@ -37,101 +38,41 @@ static void decode_xyz(const uint8_t *data, double scale, xyz_t *out) {
 	out->z = (int16_t) combine_u8_to_u16(data[5], data[4]) * scale;
 }
 
-static HAL_StatusTypeDef try_transfer(I2C_HandleTypeDef *i2c, uint16_t device_address, i2c_direction_t direction, uint8_t register_address, uint8_t *data, uint16_t length) {
-	HAL_StatusTypeDef status = HAL_ERROR;
-	for (int attempt = 0; attempt < MAX_I2C_ATTEMPTS && status != HAL_OK; attempt++)
-		if(direction == I2C_READ){
-			status = HAL_I2C_Mem_Read(i2c, IMU_ADDRESS, register_address, I2C_MEMADD_SIZE_8BIT, data, length, IMU_I2C_TIMEOUT_MS);
-		}else{
-			status = HAL_I2C_Mem_Write(i2c, IMU_ADDRESS, register_address, I2C_MEMADD_SIZE_8BIT, data, length, IMU_I2C_TIMEOUT_MS);
-		}
-	return status;
-}
-
-
-
-static HAL_StatusTypeDef transfer_with_recovery(I2C_HandleTypeDef *i2c, uint16_t device_address, i2c_direction_t direction, uint8_t register_address, uint8_t *data, uint16_t length) {
-	//attempt to read
-	if (try_transfer(i2c, device_address, direction, register_address, data, length) == HAL_OK) {
-		return HAL_OK;
-	}
-	//here if multiple attempts fail
-	log_write(); //log i2c error
-
-	//try to reinit I2C bus, keeping settings the same
-	HAL_I2C_DeInit(i2c);
-
-	//reconfigure SDA and SCL as GPIO so we can toggle them
-	GPIO_InitTypeDef pin_config = {
-			.Mode = GPIO_MODE_OUTPUT_OD,
-			.Pull = GPIO_NOPULL,
-			.Speed = GPIO_SPEED_FREQ_LOW
-	};
-	pin_config.Pin = SCL_PIN;
-	HAL_GPIO_Init(SCL_PORT, &pin_config);
-	pin_config.Pin = SDA_PIN;
-	HAL_GPIO_Init(SDA_PORT, &pin_config);
-
-	//while deinit also pulse I2C clock 9 times to clear any possible partial/torn communication
-	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_SET); // let go of SDA so we can read who's holding it (open drain)
-	for (int clock_pulse = 0; clock_pulse < 9 && HAL_GPIO_ReadPin(SDA_PORT, SDA_PIN) == GPIO_PIN_RESET; clock_pulse++) {
-		HAL_GPIO_WritePin(SCL_PORT, SCL_PIN, GPIO_PIN_RESET);
-		vTaskDelay(pdMS_TO_TICKS(1));
-		HAL_GPIO_WritePin(SCL_PORT, SCL_PIN, GPIO_PIN_SET);
-		vTaskDelay(pdMS_TO_TICKS(1));
-	}
-	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_RESET); // STOP: SDA rises while SCL is high
-	vTaskDelay(pdMS_TO_TICKS(1));
-	HAL_GPIO_WritePin(SDA_PORT, SDA_PIN, GPIO_PIN_SET);
-	vTaskDelay(pdMS_TO_TICKS(1));
-
-	HAL_I2C_Init(i2c);
-	return try_transfer(i2c, device_address, direction, register_address, data, length);
-}
-
-HAL_StatusTypeDef i2c_read(I2C_HandleTypeDef *i2c, uint16_t device_address, uint8_t register_address, uint8_t *data, uint16_t length){
-	return transfer_with_recovery(i2c, device_address, I2C_READ, register_address, data, length);
-}
-
-HAL_StatusTypeDef i2c_write(I2C_HandleTypeDef *i2c, uint16_t device_address, uint8_t register_address, const uint8_t *data, uint16_t length){
-	return transfer_with_recovery(i2c, device_address, I2C_WRITE, register_address, (uint8_t *)data, length);
-}
-
 void IMU_init(imu_t *imu) {
 	TickType_t boot_time = 0;
 	vTaskDelayUntil(&boot_time, pdMS_TO_TICKS(STARTUP_MS)); //allow time for IMU to start
 
 	//init
 	uint8_t TIMESTAMP_EN = 0b00100000; //start logging time at startup
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x19, &TIMESTAMP_EN, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x19, &TIMESTAMP_EN, 1));
 	uint8_t DEVICE_CONF = 0b11100010; //set DEVICE_CONF as it's recommended, rest default
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x18, &DEVICE_CONF, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x18, &DEVICE_CONF, 1));
 	uint8_t BDU = 0b01000100; //set BDU = 1, rest default. So high and low bytes don't tear/stay in sync
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x12, &BDU, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x12, &BDU, 1));
 	uint8_t ODR_XL = 0b01001000; //104 Hz sampling rate, 4g FS, default LPF2, last bit must be 0
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x10, &ODR_XL, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x10, &ODR_XL, 1));
 	imu->mg_per_lsb = 0.122f;
 	uint8_t ODR_G = 0b01000100; //104 Hz sampling rate, FS: max 500 degrees per second
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x11, &ODR_G, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x11, &ODR_G, 1));
 	imu->mdps_per_lsb = 17.50f;
 	//maybe send reset signal at CTRL3_C
 
 	//FIFO
 	uint8_t FIFO_WATERMARK[] = { 0b01111111, 0b00000000 }; //set threshold to alert us to 127 words (6 byte readings + byte for tag)
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x07, FIFO_WATERMARK, 2));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x07, FIFO_WATERMARK, 2));
 	uint8_t FIFO_INT1_THRESHOLD = 0b00111000; //throw interrupt when amount of unread words >= watermark (threshold), when about to be full, when overwriting
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x0D, &FIFO_INT1_THRESHOLD, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x0D, &FIFO_INT1_THRESHOLD, 1));
 	uint8_t FIFO_BDR = 0b01000100; //how fast readings are read into FIFO, good standard of 104hz. BDR<=ODR
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x09, &FIFO_BDR, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x09, &FIFO_BDR, 1));
 	uint8_t FIFO_mode_time = 0b11000110; //write one timestamp word every 32 slots (slot = 1 tick of BDR), no temperature readings, overwrite old data mode when full
-	HAL_TRY(i2c_write(imu->i2c, IMU_ADDRESS, 0x0A, &FIFO_mode_time, 1));
+	HAL_TRY(i2c_write(imu->i2c_bus, IMU_ADDRESS, 0x0A, &FIFO_mode_time, 1));
 	uint8_t FREQ_FINE_u; //internal IMU clock compensation
-	HAL_TRY(i2c_read(imu->i2c, IMU_ADDRESS, 0x63, &FREQ_FINE_u, 1));
+	HAL_TRY(i2c_read(imu->i2c_bus, IMU_ADDRESS, 0x63, &FREQ_FINE_u, 1));
 	int8_t FREQ_FINE = (int8_t) FREQ_FINE_u;
 	double timestamp_resolution = 0.000025 / (1 + 0.0015 * FREQ_FINE); //base of 25us resolution, off by 0.15% per FREQ_FINE
 	imu->timestamp_resolution = timestamp_resolution;
 	uint8_t timestamp_[4];
-	HAL_TRY(i2c_read(imu->i2c, IMU_ADDRESS, 0x40, timestamp_, 4));
+	HAL_TRY(i2c_read(imu->i2c_bus, IMU_ADDRESS, 0x40, timestamp_, 4));
 	uint32_t start_timestamp = combine_u8_to_u32(timestamp_[3], timestamp_[2], timestamp_[1], timestamp_[0]);
 	//how much ahead if the MCU time, to add for future timestamps so they allgn with our time (and other data which will align to your time)
 	//using tickcount is a little coarse due to resolution of 1ms, but we don't need to be that precise
@@ -151,7 +92,7 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 	//rereading also makes sure there is no problem if the high and low byte of DIFF_FIFO are mismatched
 	for (;;) {
 		uint8_t FIFO_status[2];
-		if(i2c_read(imu->i2c, IMU_ADDRESS, 0x3A, FIFO_status, 2) != HAL_OK) { return 0; }
+		if(i2c_read(imu->i2c_bus, IMU_ADDRESS, 0x3A, FIFO_status, 2) != HAL_OK) { return 0; }
 
 		uint8_t FIFO_full = FIFO_status[1] & 0b00100000; //FIFO will be full in one read
 		if (FIFO_full) {
@@ -168,7 +109,7 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 		} //exit condition
 		uint16_t current_chunk = min_u16(words_to_read, CHUNK); //don't read more than we have
 		//auto wraps around so we can just burst read
-		if(i2c_read(imu->i2c, IMU_ADDRESS, 0x78, FIFO_data, current_chunk * BYTES_PER_WORD) != HAL_OK) { return 0; }
+		if(i2c_read(imu->i2c_bus, IMU_ADDRESS, 0x78, FIFO_data, current_chunk * BYTES_PER_WORD) != HAL_OK) { return 0; }
 		words_read += current_chunk;
 
 		//process data (tag, timestamp, turn high+low of each measurement to one number)
@@ -210,7 +151,7 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 void IMU_log_clock_pair(imu_t *imu) {
 	//timestamp tick and mcu tick after read for future data processing and compensate for IMU clock errors to have everything in sync
 	uint8_t timestamp_[4];
-	HAL_I2C_Mem_Read(imu->i2c, IMU_ADDRESS, 0x40, I2C_MEMADD_SIZE_8BIT, timestamp_, 4, 200);
+	HAL_TRY(i2c_read(imu->i2c_bus, IMU_ADDRESS, 0x40, timestamp_, 4));
 	TickType_t current_tick = xTaskGetTickCount(); //attempt to make tick and timestamp reading as close to the same time as possible
 	uint32_t live_timestamp = combine_u8_to_u32(timestamp_[3], timestamp_[2], timestamp_[1], timestamp_[0]);
 	log_write();
