@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include "stm32u5xx_hal.h"
 
-#define IMU_ADDRESS 0xD6U /* 7-bit I2C address 0x6B, shifted for STM32 HAL. */
+#define IMU_ADDRESS 0b11010110
 
 #define CHUNK 32	//max 256 or else can have high and low byte mismatch
 #define BYTES_PER_WORD 7
@@ -19,29 +19,16 @@
 #define STARTUP_MS 35
 
 typedef struct{
-	int32_t x, y, z;
-} xyz_t;
-
-typedef struct{
 	I2C_HandleTypeDef *i2c;
 	float mg_per_lsb;
 	float mdps_per_lsb;
 	double timestamp_resolution;
 	double timestamp_offset;
-	/* Latest decoded samples, independent of the SD logging system. */
-	xyz_t gyroscope;
-	xyz_t accelerometer;
-	uint32_t gyroscope_samples;
-	uint32_t accelerometer_samples;
-	double fifo_timestamp;
-	uint32_t live_timestamp;
-	uint32_t mcu_tick;
-	uint32_t overrun_count;
-	uint32_t unknown_tags;
-	uint8_t last_timeslot;
-	uint8_t fifo_flags;
-	uint8_t initialized;
 } imu_t;
+
+typedef struct{
+	int32_t x, y, z;
+} xyz_t;
 
 typedef enum {
 	GYROSCOPE = 0x01,
@@ -49,10 +36,9 @@ typedef enum {
 	TIMESTAMP = 0x04
 } IMU_FIFO_TAG;
 
-/* Errors are returned without decoding failed I2C reads. Call from a task. */
-HAL_StatusTypeDef IMU_init(imu_t *imu);
-HAL_StatusTypeDef IMU_drain_fifo(imu_t *imu);
-HAL_StatusTypeDef IMU_log_clock_pair(imu_t *imu);
+void IMU_init(imu_t *imu);
+void IMU_drain_fifo(imu_t *imu);
+void IMU_log_clock_pair(imu_t *imu);
 
 
 #endif /* APP_DRIVERS_ISM330DHCX_H_ */

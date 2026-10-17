@@ -1,64 +1,37 @@
-# IMU experiment
+## Notes
 
-This standalone project runs the onboard ISM330DHCX accelerometer and gyroscope
-(U21) on the B-U585I-IOT02A. It uses I2C2 at 7-bit address `0x6B`; STM32 HAL
-receives the shifted address `0xD6`. It stays separate from `firmware/` and
-its SD card logging system.
+The board has an in built 3D accelerometer and gyroscope, ISM330DHCX. 
+- It is connected to the second I2C bus, I2C2.
+- The 7 bit address is 1101011
+- After the start condition (ST) a slave address is sent, once a slave acknowledge (SAK) has been
+- returned, an 8-bit sub-address (SUB) is transmitted. The increment of the address is configured by the CTRL3_C (12h) (IF_INC). (default increments after each access)
+- takes 35ms to turn on (table 3)
+- ODR = output data rate
+- ODR_XL[3:0] in CTRL1_XL controls sampling rate or off of accelerometer. View table 43 in datasheet for bit to sampling rate selections. To use high performance bit XL_HM_MODE bit in CTRL6_C should be cleared, default 0.
+- ODR_G[3:0] in CTRL2_G controls sampling rate or off of gyroscope. View table 46 in datasheet for bit to sampling rate selections. To use high performance bit G_HM_MODE bit in CTRL7_G should be cleared, default 0.
+- FS = full scale = maximum measurement it can measure
+	- The amount of steps is always the same but the resolution is what changes. Using 2g gives us a resolution 0.061mg per step, using 16g 0.488mg.
+	- DPS = degreees per second
+- DEVICE_CONF bit in CTRL9_XL is recommended to set, it starts at 0
+- I believe BDU can help us make sure low and high byte of reading stay in sync. It freezes high and low byte while reading so one doesn't change while reading and we get a mismatch.
+- Consider circular burst mode (rounding)
+- vTaskDelete cannot be used with heap_1 as it cannot free the task from the heap and will just stall
+- The IMU has designator U21 on the board
+- To account for gravity for the accelerometer a calibration step is needed as it depends on how the IMU is titled when the car is on flat ground. We take those values and subtract them for all future readings.
+- Accelerometer is at most +-65mg, typical 10
+- Gyroscope is at most +- 3000 mdps, typical 1000
+- FIFO
+	- The IMU has a 3kB FIFO (9kB with compression enabled) which can automatically take in sensor data
+	- A sensible approach to not poll too much and to not miss data would be to allow the sensor data to fill in the FIFO. A low priority task can flush it when nothing higher priority needs to run. An interrupt can be set to trigger when the FIFO is a certain level full this would force the us to read the FIFO right away. This ensures the FIFO doesn't get full/we miss data and we minimize the amount of interrupts by doing it when we are free.
+	- Status flags are set when certain things happen such as FIFO full or past a threshold or started missing data. It would make sense to check these on a read to log them if we do miss data and reset them to know if it happens again.
+	- Continuous FIFO mode (FIFO_MODE[2:0] = 110 in FIFO_CTRL4) is used to overwrite old data with new if the FIFO is full. The driver needs the current speed not old which is why this mode is picked
+	- The FIFO watermark sets the amount unread samples that can accumulate before FIFO_WTM_IA (in FIFO_STATUS2) is set
+		- To throw an interrupt when this happens bit INT1_FIFO_TH in INT1_CTRL should be set
+	- When old data has become overwritten then FIFO_OVR_IA bit in FIFO_STATUS2 is set
+		- To be able to call FreeRTOS ISR safe functions the NVIC config for the pin should have a priority `>= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY` which is currently 5. A lower number means it is a higher priority (unlike task priorities) and thus FreeRTOS will/can not handle them as they will have 0 latency.
+	- Get the number of unread samples to empty FIFO before it's full from DIFF_FIFO_[9:0] in FIFO_STATUS1&2
 
-## Current behavior
 
-The startup task prints the Git version and project name over UART4, then
-suspends instead of deleting itself because the preserved FreeRTOS setup uses
-`heap_1`. The IMU task waits 35 ms, checks WHO_AM_I, enables BDU and address
-auto-increment, and configures both sensors at 104 Hz (+/-4 g and +/-500 dps).
-Initialization failures are reported over UART4 and retried once per second.
-
-The driver drains tagged FIFO words in chunks of at most 32 words, decodes
-signed XYZ readings and timestamps, counts overruns and unknown tags, and
-captures IMU/MCU clock pairs. Failed I2C reads return an error without decoding
-uninitialized data. Each drain is bounded so a continuously filling FIFO
-cannot monopolize the task. Latest readings and counters remain in `imu_t`;
-UART4 prints the latest gyro (mdps) and accel (mg) readings at most 10 times
-per second. Intermediate samples are decoded but are not retained or logged
-to SD. Integer UART output does not require printf float support.
-
-The local CubeMX pin and NVIC settings are preserved: PE11 remains a GPIO
-input. The task therefore wakes on its 100 ms polling timeout. The incoming
-EXTI11 handler, rising-edge callback, and ISR-safe task notification are
-retained but inactive with this pin setup. If interrupt operation is enabled
-in CubeMX later, its NVIC priority must be numerically at least
-`configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY` (currently 5).
-
-## Build and check
-
-Import this directory into STM32CubeIDE and build Debug or Release. The local
-`makefile.defs` generates `Core/Inc/version.h` from Git; Git must be on PATH.
-The existing compiler, linker, HAL, FreeRTOS, clock and peripheral settings
-are retained; only `App` source/include paths were added for the driver.
-Connect through ST-LINK and use **Run As** or **Debug As > STM32 C/C++ Application**.
-
-The [host suite](../../tests/README.md) exercises FIFO burst boundaries,
-signed scaling, timestamp decoding, I2C failures, startup retries' underlying
-transactions, and EXTI/task notifications. It does not replace an on-board
-check. After flashing this project, inspect UART4 at 115200 baud: verify the
-startup banner, changing readings when moving the board, roughly 1000 mg
-along the gravity axis when stationary, and recovery from transient I2C errors.
-Observe task stack high-water marks and FIFO overrun counters under load.
-
-## Register notes and remaining work
-
-- `CTRL1_XL` and `CTRL2_G` select output data rate and full scale.
-- `CTRL3_C` (`0x12`) enables BDU to avoid torn high/low bytes, and `IF_INC` for
-  register auto-increment. High-performance operation keeps `XL_HM_MODE` and
-  `G_HM_MODE` cleared.
-- `CTRL9_XL` enables the recommended `DEVICE_CONF` bit.
-- The 3 KB FIFO uses continuous mode (`FIFO_MODE = 110`) to retain newer data
-  on overflow. The watermark is 127 words; `INT1_CTRL` routes watermark,
-  full, and overrun conditions to INT1. `DIFF_FIFO[9:0]` gives unread words.
-- The device automatically wraps FIFO output registers for multiword bursts.
-  See the [application note](../../docs/datasheets/imu-ism330dhcs-application-note.pdf)
-  and [datasheet](../../docs/datasheets/imu-ism330dhcx-datasheet.pdf).
-- Sampling still uses blocking I2C. Gravity removal, mounting calibration,
-  bias compensation, and SD integration remain future work. FIFO timestamps
-  use the original 32-bit sensor time conversion; long-running timestamp
-  rollover handling remains to be implemented before continuous multi-day use.
+## TODO
+- [ ] Use non blocking I2C reads
+- [ ] Check for errors from I2C calls
