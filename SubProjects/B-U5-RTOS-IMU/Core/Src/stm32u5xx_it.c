@@ -174,5 +174,11 @@ void TIM1_UP_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/* Inactive with the preserved GPIO-input setup. Ready if EXTI11 is enabled. */
+void EXTI11_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(Mems_ISM330DLC_INT1_Pin);
+}
+
 
 /* USER CODE END 1 */

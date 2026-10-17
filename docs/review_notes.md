@@ -16,9 +16,11 @@ implementations were left unchanged.
   not read, so it currently runs the same startup as Debug.
 - `tools/log_decoder.py` is missing. CMake omits the decoder test when the
   script is absent; passing the available host tests does not check decoding.
-- The [IMU prototype](../SubProjects/B-U5-RTOS-IMU/Core/Src/main.c) ignores the
-  I2C configuration write result. It also has no sample-reading implementation
-  yet, so a failed write is not reported by that task.
+- The [IMU prototype](../SubProjects/B-U5-RTOS-IMU/README.md) now checks I2C
+  transactions and decodes tagged FIFO samples. It retains the local GPIO-input
+  setup and uses 100 ms polling; incoming interrupt support remains available
+  if EXTI is configured later. Real interrupt timing, motion response, stack
+  margins and long-running timestamp rollover still need on-board validation.
 
 This repository has no application cache replacement policy to review. The
 logging queue is FIFO and rejects the newest submission when full.

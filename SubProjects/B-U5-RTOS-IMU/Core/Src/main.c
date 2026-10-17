@@ -25,6 +25,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "version.h"
+#include "imu_task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,7 +35,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define IMU_ADDRESS 0b11010110
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -87,24 +87,16 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 /* USER CODE BEGIN 0 */
 void startup(void *parameters)
 {
-	uint8_t version[] = FW_VERSION "\n";
-	HAL_UART_Transmit(&huart4, version, sizeof(version), 200);
-	uint8_t project_name[] = "B-U5-RTOS-IMU\n";
-	HAL_UART_Transmit(&huart4, project_name, sizeof(project_name), 200);
+    (void)parameters;
+    uint8_t version[] = FW_VERSION "\n";
+    HAL_UART_Transmit(&huart4, version, sizeof(version) - 1, 200);
+    uint8_t project_name[] = "B-U5-RTOS-IMU\n";
+    HAL_UART_Transmit(&huart4, project_name, sizeof(project_name) - 1, 200);
 
-	vTaskDelete(NULL);
-}
-
-void readIMU(void *parameters)
-{
-	vTaskDelay(35 / portTICK_PERIOD_MS); // Allow the IMU to power up.
-	// TODO: check whether CTRL3_C needs a reset here.
-	uint8_t ODR = 0b10000000; // 1.66 kHz output rate; other CTRL1_XL fields stay zero.
-	HAL_I2C_Mem_Write(&hi2c2, IMU_ADDRESS, 0x10, I2C_MEMADD_SIZE_8BIT, &ODR, 1, 200);
-	while (1) {
-		// TODO: read samples over I2C2 and print them over UART.
-		vTaskDelay(500 / portTICK_PERIOD_MS);
-	}
+    /* heap_1 cannot free tasks. Suspend after the one-shot startup message. */
+    for (;;) {
+        vTaskSuspend(NULL);
+    }
 }
 
 /* USER CODE END 0 */
@@ -153,8 +145,10 @@ int main(void)
   MX_UCPD1_Init();
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
-  xTaskCreate(startup, "Startup print", 256, NULL, 2, NULL); // Print startup messages before the IMU task runs.
-  xTaskCreate(readIMU, "Read + print IMU", 256, NULL, 1, NULL);
+  if (xTaskCreate(startup, "Startup print", 256, NULL, 2, NULL) != pdPASS ||
+      xTaskCreate(IMU_task, "IMU init + drain", 512, &hi2c2, 1, NULL) != pdPASS) {
+    Error_Handler();
+  }
   /* USER CODE END 2 */
 
   /* Init scheduler */

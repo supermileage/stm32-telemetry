@@ -1,8 +1,8 @@
 # Host tests
 
 These unit and integration tests run on a PC without the board. They use a
-simulated SD card and FreeRTOS mocks to exercise the driver, filesystem, and
-logging code.
+simulated SD card, IMU register/FIFO model, and FreeRTOS mocks to exercise the driver, filesystem, and
+logging code, plus the standalone IMU driver and task.
 
 ## Run the tests
 
@@ -28,6 +28,7 @@ missing from this checkout, so CMake currently omits the decoder test.
 | Folder | What it checks |
 | --- | --- |
 | [sd_spi/](sd_spi/README.md) | SD protocol, C++ HAL callback integration/errors, and real FatFs on a simulated card |
+| `imu/` | FIFO chunking, signed XYZ scaling, timestamps, bus errors, and EXTI/task notification/UART integration |
 | `logging/` | Record queues, flush and stop ordering, file errors, and storage task startup and shutdown |
 
 The mocks do not check real interrupt timing, task scheduling, or electrical

@@ -70,6 +70,17 @@ foreach(_test IN ITEMS sd_spi_tests sd_port_tests logger_tests log_file_tests st
 endforeach()
 
 find_package(Python3 QUIET COMPONENTS Interpreter)
+set(_imu "${_repo}/SubProjects/B-U5-RTOS-IMU/App")
+add_executable(imu_tests imu/test_imu.c "${_imu}/drivers/ism330dhcx.c"
+    "${_imu}/imu_task.c" "${_imu}/exti.c")
+target_include_directories(imu_tests PRIVATE imu "${_imu}" "${_imu}/drivers")
+target_compile_features(imu_tests PRIVATE c_std_11)
+target_compile_options(imu_tests PRIVATE -UNDEBUG)
+target_link_libraries(imu_tests PRIVATE telemetry_warnings)
+foreach(_scenario IN ITEMS fifo errors task)
+    add_test(NAME imu_${_scenario} COMMAND imu_tests ${_scenario})
+endforeach()
+
 if(Python3_Interpreter_FOUND AND EXISTS "${_repo}/tools/log_decoder.py")
     add_test(NAME log_decoder COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/logging/test_decode_log.py")
