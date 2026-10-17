@@ -4,3 +4,6 @@
 [submodule "lib/fatfs/upstream"]
 	path = lib/fatfs/upstream
 	url = https://github.com/STMicroelectronics/stm32-mw-fatfs.git
+[submodule "lib/minmea"]
+	path = lib/minmea
+	url = git@github.com:kosma/minmea.git

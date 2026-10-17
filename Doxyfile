@@ -3,11 +3,11 @@ PROJECT_NAME           = "STM32 telemetry"
 PROJECT_BRIEF          = "Application and board support API"
 OUTPUT_DIRECTORY       = build/docs
 
-INPUT                  = firmware/app firmware/BSP docs/doxygen.md
+INPUT                  = firmware/app firmware/BSP docs/architecture.md
 FILE_PATTERNS          = *.h *.c *.cpp *.md
 EXCLUDE_PATTERNS       = */README.md
 RECURSIVE              = YES
-USE_MDFILE_AS_MAINPAGE  = docs/doxygen.md
+USE_MDFILE_AS_MAINPAGE  = docs/architecture.md
 STRIP_FROM_PATH        = .
 JAVADOC_AUTOBRIEF      = YES
 

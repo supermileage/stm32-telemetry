@@ -1,8 +1,8 @@
 # FatFs integration
 
-FatFs R0.12c comes from the pinned `upstream` submodule. The files in this
-folder wrap those sources for CubeIDE; CMake builds the upstream sources
-directly. Keep `ffconf.h` and the matching FatFs version together.
+FatFs R0.12c comes from the pinned `upstream` submodule. This folder wraps its
+sources for CubeIDE and provides `ffconf.h`. Keep the configuration and FatFs
+version together, and compile each source only once.
 
 ## Configuration
 
@@ -20,8 +20,9 @@ as the single implementation of `disk_*`. Board configuration and application
 mount policy are outside this adapter.
 
 The storage task owns all FatFs calls because `_FS_REENTRANT = 0`. Sensor
-tasks submit records through the [logger](../../firmware/app/logging/README.md).
-For wiring and build setup, see [storage](../../firmware/app/storage/README.md).
+tasks submit records through the [logger](../../docs/storage_logging.md#submit-records).
+See [hardware](../../docs/hardware.md) for wiring and the
+[firmware guide](../../firmware/README.md) for build setup.
 
 CubeIDE links the root `lib` folder as `Lib` and uses `../../lib/fatfs` from
 the build directories. Refresh the project after changing `.project` or

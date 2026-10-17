@@ -1,36 +1,23 @@
-# Application code
+# Application Code
 
-This folder is for the main application code: startup, logging, and eventually
-the sensor and communication tasks.
+This folder contains the main application code, including startup, storage, logging, and sensor tasks. Hardware configuration stays in `Core/` and `BSP/`, while reusable drivers are kept in `lib/`.
 
-Right now, `app.cpp` just sets up the SD card's SPI interface. The generated
-RTOS code calls `app_init()` before the scheduler starts. `app.h` lets that C
-code call the C++17 implementation.
+## Files
 
-`app_init()` calls `bsp::configureSd()` and goes to `Error_Handler()` if setup
-fails. This doesn't send any commands to the card. After that, the generated
-default task runs. Storage, sensor readings, and communication still need to
-be connected to startup.
+| Path | Purpose |
+| --- | --- |
+| `app.h`, `app.cpp` | Connects C startup code to the C++ application |
+| `storage/` | Handles SD card mounting, file checks, and the storage task |
+| `logging/` | Manages the logging queue, record encoding, and file rotation |
+| `sensors/` | Sensor data collection (work in progress) |
 
-The other folders here are:
+## Startup
 
-- [storage/](storage/README.md): mounting the card, checking a test file, and
-  running the task that handles card access.
-- [logging/](logging/README.md): queuing records, buffering writes, syncing,
-  and starting a new file when the current one gets too large.
+The RTOS initialization calls `app_init()` after the peripherals and kernel are set up, but before the scheduler starts.
 
-Those modules are still written in C and have host tests, but they aren't
-started by `app_init()` or included in the CMake firmware target yet. The
-[C++ plan](../../docs/sd_logging_cpp_implementation.md) covers the next steps.
-So far, the startup and BSP stages are done. See the
-[startup guide](../../docs/cpp_milestone_1.md) for the C/C++ build setup.
+The startup process:
 
-Keep application logic here, CubeMX setup in `Core`, and board pins and HAL
-calls in [BSP](../BSP/README.md). The
-[SD library](../../lib/drivers/sd_spi/README.md) handles the card protocol and
-FatFs disk adapter. Constructors should just set up fields; call an explicit
-setup function when hardware needs to be initialized.
-
-The [API reference guide](../../docs/doxygen.md) explains how to generate and
-check the Doxygen pages for this folder and the BSP. Keep call requirements
-in the headers and use source comments to explain choices that need context.
+1. Configures the SD SPI interface using `bsp::configureSd()`.
+2. Calls `Error_Handler()` if configuration fails.
+3. Creates the storage task using `storage_start_task()`.
+4. Once the scheduler starts, the storage task handles SD card and filesystem operations.

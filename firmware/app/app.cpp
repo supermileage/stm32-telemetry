@@ -5,12 +5,18 @@
 #include "app.h"
 #include "board_sd.h"
 #include "main.h"
-
-static_assert(__cplusplus >= 201703L, "Application code requires C++17");
+/* Prevent C++ name mangling */
+extern "C" {
+#include "storage/storage_task.h"
+}
 
 extern "C" void app_init(void)
 {
     if (!bsp::configureSd()) {
         Error_Handler();
     }
+
+    //storage_start_hello_test();
+    storage_start_task();
+
 }

@@ -172,7 +172,7 @@ header file. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
-/* CubeIDE and CMake use the hard-float ABI. Preserve task FP registers. */
+/* CubeIDE uses the hard-float ABI. Preserve task FP registers. */
 #undef configENABLE_FPU
 #define configENABLE_FPU 1
 /* USER CODE END Defines */
