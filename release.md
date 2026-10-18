@@ -17,6 +17,10 @@ See the [versioning policy](README.md#releases) when choosing a version.
 
 4. Select Release in CubeIDE and build. Enable **MCU/MPU Post build outputs >
    Convert to binary file (-O binary)** if the build does not produce a `.bin`.
+5. Check `Core/Inc/version.h` to make sure it says "v0.x.x" (your version) with no -dirty at the end or -gXXXXXXX so that the release matches the current commit
+	- If it's dirty then discard or stash changes. Or commit them, delete tag and make it again
+	- If you see a hash (-gXXXXXXX) then there are commits past the tag, if you want to include them then delete the tag and make it again.
+	- If you already pushed the tag then the move will need to be forced, do not move if you've already made the release with the files, just make a new release
 5. Flash the Release build and check it on the board. Optimization can expose
    problems that do not appear in Debug.
 6. Push the tag with `git push origin v0.x.x`.
@@ -40,18 +44,28 @@ A short release description can use this template:
 - Build configuration, hardware used, checks run, and results.
 ```
 
+## One time setup for a project
+
+- Ensure `git` is on your path
+
+1. Copy the `makefile.defs` file in this directory to the top level folder of the project (gets included in main makefile before compilation)
+2. Stage and commit the change
+4. In CubeIDE: Project > Properties > C/C++ Build > Settings > MCU/MPU GCC Compiler > Debugging (config release) set Debug level to -g3. Apply, rebuild index if it prompts you to
+5. In CubeIDE: Project > Properties > C/C++ Build > Settings > MCU/MPU Post build outputs (in release config) tick Convert to binary file (-O binary). Apply.
+	- Creates binary file to make flashing need no software to allow any member needs to flash and easier for us if need to roll back
+6. (Optional) auto rename build files with name and version number so you don't have to do it manually each time. Project > Properties > C/C++ Build > Settings > Build Steps (Configuration: Release) in the Post-build steps > Command: 
+	```
+	arm-none-eabi-objcopy ${ProjName}.elf NAME-$(FW_VERSION).elf && arm-none-eabi-objcopy -O binary ${ProjName}.elf NAME-$(FW_VERSION).bin
+	```
+	Replace "NAME" right before FW_VERSION to the name you want or use `${ProjName}` for the project name. Add a description if you wish
+
+Note: this is already good by default just don't change it. Project Properties > C/C++ Build > Builder Settings "Generate Makefiles automatically"
+
+Note: make sure `version.h` is gitignored, should already be from the top level one
+
 ## Version headers
 
-The IMU prototype's [makefile.defs](SubProjects/B-U5-RTOS-IMU/makefile.defs)
-generates `Core/Inc/version.h` using `git describe --tags --dirty --always`.
-Git must be on PATH. Include `version.h` and use `FW_VERSION` to print the version.
-The main firmware does not currently have this hook.
+A `-dirty` suffix means there are uncommitted changes. 
 
-To add it to another CubeIDE project, copy `makefile.defs` to that project's
-root and leave **Generate Makefiles automatically** enabled. Keep `version.h`
-ignored by Git.
-
-At a clean, tagged commit, the header should match the tag. A `-dirty` suffix
-means there are uncommitted changes; a commit count and hash mean the build is
-past the tag. Resolve either before publishing. Create a new release tag if
-the old one is already published.
+A commit count and hash mean the build is
+past the tag.

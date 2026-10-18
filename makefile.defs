@@ -1,0 +1,16 @@
+# makefile.defs
+# Read automatically by CubeIDE's generated makefile, which runs from Debug/ or Release/.
+# Writes Core/Inc/version.h with the output of `git describe`.
+
+FW_VERSION := $(strip $(shell git describe --tags --dirty --always))
+ifeq ($(FW_VERSION),)
+FW_VERSION := unknown
+endif
+
+VERSION_H    := ../Core/Inc/version.h
+VERSION_TEXT := \#define FW_VERSION "$(FW_VERSION)"
+
+# Only rewrite the header when the version changed, so unchanged builds don't recompile.
+ifneq ($(file <$(VERSION_H)),$(VERSION_TEXT))
+$(file >$(VERSION_H),$(VERSION_TEXT))
+endif

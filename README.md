@@ -51,7 +51,7 @@ Project plans are in the
 [telemetry plan](https://app.notion.com/p/Vehicle-Telemetry-System-3ee7e02c955f806296e9d68eaa08e37a)
 and [division plan](https://app.notion.com/p/Software-Embedded-Division-Project-Plan-2026-2027-3bb7e02c955f80a282bec8cfb8830d0f).
 
-## Releases
+## Versioning and Releases
 
 Version tags use `vMAJOR.MINOR.PATCH`: major for project milestones such as the
 MVP, minor for new capabilities or breaking changes, and patch for fixes and
