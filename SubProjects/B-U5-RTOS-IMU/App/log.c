@@ -29,7 +29,7 @@ void log_write(imu_data_t *data){
 			name = "Unknown";
 			break;
 	}
-	int len = snprintf(buffer, sizeof(buffer), "IMU tick: %ld, timestamp: %f, timeslot: %d \n %s : x:%+04ld, y:%+04ld, z:%+04ld\r\n", data->ticks, data->time, data->timeslot, name, data->data.x, data->data.y, data->data.z);
+	int len = snprintf(buffer, sizeof(buffer), "IMU tick: %ld, timestamp: %f, timeslot: %d \r\n %s : x:%+04ld, y:%+04ld, z:%+04ld\r\n", data->ticks, data->time, data->timeslot, name, data->data.x, data->data.y, data->data.z);
 	if (len >= (int)sizeof(buffer)) len = sizeof(buffer) - 1;
 	HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, 200);
 }
