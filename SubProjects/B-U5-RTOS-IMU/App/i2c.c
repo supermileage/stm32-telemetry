@@ -42,7 +42,7 @@ static HAL_StatusTypeDef transfer_with_recovery(i2c_bus_t *i2c_bus, uint16_t dev
 		return HAL_OK;
 	}
 	//here if multiple attempts fail
-	log_write(); //log i2c error
+	//log_write(); //log i2c error
 
 	//try to reinit I2C bus, keeping settings the same
 	HAL_I2C_DeInit(i2c_bus->handle);

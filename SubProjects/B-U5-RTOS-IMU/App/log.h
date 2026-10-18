@@ -8,7 +8,9 @@
 #ifndef LOG_H_
 #define LOG_H_
 
-void log_write();
+#include "ism330dhcx.h"
+
+void log_write(imu_data_t *data);
 
 
 #endif /* LOG_H_ */

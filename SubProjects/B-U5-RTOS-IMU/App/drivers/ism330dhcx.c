@@ -96,11 +96,11 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 
 		uint8_t FIFO_full = FIFO_status[1] & 0b00100000; //FIFO will be full in one read
 		if (FIFO_full) {
-			log_write();
+			//log_write();
 		}
 		uint8_t FIFO_overrun = FIFO_status[1] & 0b00001000; //FIFO has begun to overwrite old data as it's full
 		if (FIFO_overrun) {
-			log_write();
+			//log_write();
 		}
 
 		words_to_read = (uint16_t) (((FIFO_status[1] & 0b00000011) << 8) | FIFO_status[0]); //ignore first 6 bits
@@ -114,22 +114,23 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 
 		//process data (tag, timestamp, turn high+low of each measurement to one number)
 		for (uint16_t i = 0; i < current_chunk * BYTES_PER_WORD; i += BYTES_PER_WORD) {
+			imu_data_t data = {0, 0.0, {0, 0, 0}, 0, 0};
 			IMU_FIFO_TAG tag = FIFO_data[i] >> 3; //tag = 5 MSBs
 			uint8_t timeslot = FIFO_data[i] >> 1 & 0b00000011;
 			switch (tag) {
 				case GYROSCOPE: {
-					xyz_t readings;
-					decode_xyz(&FIFO_data[i + 1], imu->mdps_per_lsb, &readings);
-
+					//xyz_t readings;
+					decode_xyz(&FIFO_data[i + 1], imu->mdps_per_lsb, &data.data);
 					break;
 				}
 				case ACCELEROMETER: {
-					xyz_t readings;
-					decode_xyz(&FIFO_data[i + 1], imu->mg_per_lsb, &readings);
+					//xyz_t readings;
+					decode_xyz(&FIFO_data[i + 1], imu->mg_per_lsb, &data.data);
 					break;
 				}
 				case TIMESTAMP: {
 					double fifo_timestamp = combine_u8_to_u32(FIFO_data[i + 4], FIFO_data[i + 3], FIFO_data[i + 2], FIFO_data[i + 1]) * imu->timestamp_resolution + imu->timestamp_offset;
+					data.time = fifo_timestamp;
 					//other bytes not relevant, ignore them
 					break;
 				}
@@ -138,11 +139,13 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 					break;
 
 			}
+			data.type = tag;
+			data.timeslot = timeslot;
+			log_write(&data);
 
 		}
 
 		//log data (tag, timeslot, data): xQueueSend
-		log_write();
 	}
 
 	return words_read;
@@ -154,7 +157,7 @@ void IMU_log_clock_pair(imu_t *imu) {
 	HAL_TRY(i2c_read(imu->i2c_bus, IMU_ADDRESS, 0x40, timestamp_, 4));
 	TickType_t current_tick = xTaskGetTickCount(); //attempt to make tick and timestamp reading as close to the same time as possible
 	uint32_t live_timestamp = combine_u8_to_u32(timestamp_[3], timestamp_[2], timestamp_[1], timestamp_[0]);
-	log_write();
+	//log_write();
 }
 
 //void IMU_direct_read(imu_t *imu){

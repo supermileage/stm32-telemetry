@@ -44,6 +44,14 @@ typedef enum {
 	TIMESTAMP = 0x04
 } IMU_FIFO_TAG;
 
+typedef struct{
+	uint32_t ticks;
+	double time;
+	xyz_t data;
+	IMU_FIFO_TAG type;
+	uint8_t timeslot;
+} imu_data_t;
+
 void IMU_init(imu_t *imu);
 uint16_t IMU_drain_fifo(imu_t *imu);
 void IMU_log_clock_pair(imu_t *imu);
