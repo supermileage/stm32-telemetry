@@ -10,9 +10,8 @@ extern "C" {
 #endif
 
 /**
- * Create the storage task and logger queue after peripheral setup and RTOS
- * kernel init. Call once before the scheduler starts. The storage task owns
- * SD setup after scheduling begins and reports failures through logger status.
+ * @brief Create the storage task and logger queue.
+ * Call after peripheral and kernel setup, before starting the scheduler.
  */
 void app_init(void);
 

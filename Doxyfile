@@ -3,8 +3,9 @@ PROJECT_NAME           = "STM32 telemetry"
 PROJECT_BRIEF          = "Application and board support API"
 OUTPUT_DIRECTORY       = build/docs
 
-INPUT                  = firmware/app firmware/BSP firmware/README.md
-FILE_PATTERNS          = *.h *.c *.cpp *.md
+INPUT                  = firmware/app firmware/BSP firmware/README.md \
+                         lib/drivers/sd_spi/sd_spi.h lib/drivers/sd_spi/fatfs/sd_diskio.h
+FILE_PATTERNS          = *.h *.hpp *.c *.cpp *.md
 EXCLUDE_PATTERNS       = */app/README.md */app/*/README.md */BSP/README.md */BSP/*/README.md
 RECURSIVE              = YES
 USE_MDFILE_AS_MAINPAGE  = firmware/README.md

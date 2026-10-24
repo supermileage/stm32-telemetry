@@ -16,10 +16,14 @@
  * payload fields explicitly, including byte order; this struct is not a disk format.
  */
 typedef struct {
-    uint32_t timestamp_ms; /**< Milliseconds since boot; wraps to zero after UINT32_MAX. */
-    uint16_t source;       /**< Application-assigned ID identifying the payload format. */
-    uint16_t length;       /**< Number of payload bytes to write, from 0 to LOG_PAYLOAD_MAX. */
-    uint8_t payload[LOG_PAYLOAD_MAX]; /**< Encoded sample; bytes after length are not written. */
+    /** Milliseconds since boot; wraps to zero after UINT32_MAX. */
+    uint32_t timestamp_ms;
+    /** Application-assigned ID identifying the payload format. */
+    uint16_t source;
+    /** Number of payload bytes to write, from 0 to LOG_PAYLOAD_MAX. */
+    uint16_t length;
+    /** Encoded sample; bytes after length are not written. */
+    uint8_t payload[LOG_PAYLOAD_MAX];
 } log_record_t;
 
 #endif

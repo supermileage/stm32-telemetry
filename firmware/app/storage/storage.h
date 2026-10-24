@@ -11,27 +11,26 @@
 #define STORAGE_TEST_PATH_SIZE 17U
 
 /**
- * Mount the SD card without formatting it. Call from the storage task.
- * After an I/O error, close files and unmount before retrying.
- * @return FR_OK if mounted (including an existing mount), or a setup/FatFs error.
+ * @brief Mount the card without formatting it. Storage task only.
+ * Close files and unmount after an I/O error before retrying.
+ * @return FR_OK if mounted, otherwise a setup or FatFs error.
  */
 FRESULT storage_mount(void);
 
 /**
- * Unmount the card and unlink its driver. Close all files first.
- * Call only from the storage task, with no other FatFs or SD access in progress.
- * @return FR_OK if unmounted or already unregistered; otherwise the cleanup error.
+ * @brief Unmount and unlink the card driver. Storage task only.
+ * Close all files first; no other FatFs or SD calls may be running.
+ * @return FR_OK if unmounted, otherwise the cleanup error.
  */
 FRESULT storage_unmount(void);
 
 /**
- * Write "Hello World\r\n" to a new HELLOxxx.TXT and read it back.
- * Requires a mounted card and must run in the storage task. Existing files
- * are kept; names run from HELLO000.TXT to HELLO999.TXT.
- * @param[out] path Non-NULL buffer of STORAGE_TEST_PATH_SIZE bytes. Receives
- * the attempted filename, or an empty string if no file was attempted.
- * @return FR_OK after verification and close, FR_EXIST if all names are used,
- * FR_DISK_ERR for a short write or content mismatch, or another FatFs error.
+ * @brief Create an unused HELLOxxx.TXT and verify its contents.
+ * Storage task only, with the card mounted. Names run from 000 to 999.
+ * @param[out] path Non-NULL buffer of STORAGE_TEST_PATH_SIZE bytes; receives the attempted path.
+ *                  Empty if no file was attempted.
+ * @return FR_OK if verified, FR_EXIST if names are exhausted, FR_DISK_ERR for
+ *         a short write or content mismatch, or another FatFs error.
  */
 FRESULT storage_self_test(char path[STORAGE_TEST_PATH_SIZE]);
 

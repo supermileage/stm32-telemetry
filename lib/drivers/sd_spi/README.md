@@ -25,12 +25,12 @@ if the application uses FatFs. The STM32 HAL port lives in the
 ## Platform callbacks
 
 Configure full-duplex, mode-0 SPI with 8-bit words, MSB first, and active-low
-software CS. Bind these five callbacks with `sd_spi_bind()`:
+software CS at a fixed clock of 400 kHz or lower. Bind these four callbacks
+with `sd_spi_bind()`:
 
 | Callback | Contract |
 | --- | --- |
 | `exchange(tx, rx)` | Transfer one byte in both directions, including when CS is high. Use a finite timeout and return false on failure. |
-| `set_speed(maximum_hz)` | Select a clock at or below the limit. Called with CS high; return false if configuration fails. |
 | `chip_select(selected)` | Drive CS low for true and high for false. |
 | `get_tick_ms()` | Return advancing milliseconds modulo 2^32, including during polling. |
 | `delay_ms(milliseconds)` | Wait at least the requested duration; initialization requests 10 ms. |
@@ -40,8 +40,9 @@ but hardware and callback state must remain valid. There is no context pointer
 or bus lock. Keep the timebase running; an interrupt-driven tick will stall if
 interrupts are disabled.
 
-The driver requests at most 400 kHz during initialization and 4 MHz afterward.
-Slower clocks are allowed.
+Configure the peripheral before binding. The driver uses the same clock for
+initialization and data I/O and never changes peripheral settings. On STM32,
+CubeMX owns that configuration. The current board uses 250 kHz throughout.
 
 ## Card access
 
@@ -65,7 +66,7 @@ When FatFs owns the card, use FatFs for normal I/O and file syncs.
 | --- | --- |
 | `SD_OK` | Completed successfully. |
 | `SD_INVALID_ARGUMENT` | Invalid pointer, count, or address range. Invalid I/O arguments leave readiness unchanged; an invalid bind removes the binding. |
-| `SD_NOT_READY` | Card is not initialized, or initialization was rejected, timed out, or could not set the clock. |
+| `SD_NOT_READY` | Card is not initialized, or initialization was rejected or timed out. |
 | `SD_ERROR` | Transfer, protocol, busy timeout, or capacity decoding failed. |
 
 A failed card operation clears readiness. Later valid requests return

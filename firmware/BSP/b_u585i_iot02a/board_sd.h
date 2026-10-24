@@ -1,7 +1,3 @@
-/**
- * @file
- * @brief SD wiring and setup for the B-U585I-IOT02A board.
- */
 #ifndef BOARD_SD_H
 #define BOARD_SD_H
 
@@ -12,11 +8,11 @@ extern "C" {
 #endif
 
 /**
- * Configure SPI1 with PE12 as CS and register the SD driver's hardware callbacks.
- * Failure removes any previously registered callbacks.
- * Called by storage_mount() in the storage task after CubeMX GPIO/SPI setup,
- * with files closed and the card unmounted. No card commands are sent here.
- * @return true if the interface is ready at or below 400 kHz; false on setup failure.
+ * @brief Bind the SD driver to SPI1 and PE12.
+ *
+ * Call from the storage task with files closed and the card unmounted.
+ * CubeMX must configure a fixed clock of 400 kHz or lower.
+ * @return true if bound; false on failure, clearing the old binding.
  */
 bool board_sd_configure(void);
 

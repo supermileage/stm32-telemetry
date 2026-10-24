@@ -17,21 +17,17 @@ extern "C" {
 #endif
 
 /**
- * @brief Register the SD SPI driver as the first attached FatFs driver.
- * @param path Receives the drive path ("0:/"); needs four bytes.
- * @return true on success; false for NULL, an existing registration, another
- *         attached driver, or a dispatcher registration failure.
- * @note FatFs initializes the card when the volume is mounted immediately or
- *       first accessed. This function does not configure board hardware.
+ * @brief Register the SD driver as FatFs drive 0.
+ * Hardware must be configured first. FatFs initializes the card when mounting or accessing it.
+ * @param[out] path Four-byte buffer receiving "0:/".
+ * @return true if registered; false for invalid input, an occupied slot, or dispatcher failure.
  */
 bool sd_diskio_register(char path[4]);
 
 /**
- * @brief Unlink the SD driver after closing files and unmounting the volume.
- * @param path Drive path returned by sd_diskio_register(); cleared on success.
- * @return true on success; false for NULL, no registration, an invalid drive
- *         prefix, or a dispatcher unlink failure.
- * @note Does not close files, unmount, or clear the SD driver's ready state.
+ * @brief Unlink the driver after closing files and unmounting.
+ * @param[in,out] path Registered drive path; cleared on success.
+ * @return true if unlinked; false for invalid input, no registration, or dispatcher failure.
  */
 bool sd_diskio_unregister(char path[4]);
 

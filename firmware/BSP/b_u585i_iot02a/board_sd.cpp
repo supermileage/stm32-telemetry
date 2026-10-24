@@ -1,13 +1,15 @@
-/**
- * @file
- * @brief SD interface setup for the board's SPI1 bus and PE12 chip select.
- */
 #include "board_sd.h"
-#include "sd_spi_port.h"
+#include "storage/sd_spi_port.hpp"
 #include "main.h"
 #include "spi.h"
 
 bool board_sd_configure(void)
 {
-    return sd_spi_port_bind(&hspi1, SD_CS_GPIO_Port, SD_CS_Pin);
+    static spi_bus_t bus{};
+
+    if (!spi_bus_init(&bus, &hspi1)) {
+        (void)sd_spi_port_bind(nullptr, nullptr, 0U);
+        return false;
+    }
+    return sd_spi_port_bind(&bus, SD_CS_GPIO_Port, SD_CS_Pin);
 }

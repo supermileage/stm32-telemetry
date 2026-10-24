@@ -38,17 +38,6 @@ static uint8_t sd_port_exchange(uint8_t tx)
     return rx;
 }
 
-static bool sd_port_set_speed(uint32_t maximum_hz)
-{
-    if (port.set_speed(maximum_hz)) {
-        return true;
-    }
-    ++diagnostics.speed_failures;
-    return false;
-}
-
-#define FCLK_SLOW() do { if (!sd_port_set_speed(400000U)) return SD_NOT_READY; } while (0)
-#define FCLK_FAST() do { if (!sd_port_set_speed(4000000U)) return SD_NOT_READY; } while (0)
 #define CS_HIGH() port.chip_select(false)
 #define CS_LOW() port.chip_select(true)
 
@@ -314,10 +303,6 @@ static sd_result_t sd_protocol_initialize(void)
 	CS_HIGH();
 	port.delay_ms(10U);
 
-	//assume SPI already init init_spi();	/* Initialize SPI */
-
-
-	FCLK_SLOW();
 	for (n = 10; n; n--) xchg_spi(0xFF);	/* Send 80 dummy clocks */
 
 	ty = 0;
@@ -355,7 +340,6 @@ static sd_result_t sd_protocol_initialize(void)
 	deselect_card();
 
 	if (!ty) return SD_NOT_READY;
-	FCLK_FAST();
 	return SD_OK;
 }
 
@@ -471,7 +455,7 @@ bool sd_spi_bind(const sd_spi_port_t *hardware)
 {
     ready = false;
     port = (sd_spi_port_t){0};
-    if (hardware == NULL || hardware->exchange == NULL || hardware->set_speed == NULL ||
+    if (hardware == NULL || hardware->exchange == NULL ||
         hardware->chip_select == NULL || hardware->get_tick_ms == NULL || hardware->delay_ms == NULL) {
         ++diagnostics.invalid_arguments;
         diagnostics.last_result = SD_INVALID_ARGUMENT;

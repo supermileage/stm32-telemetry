@@ -23,46 +23,52 @@
  * Zero-initialize before the first open and leave the fields to the writer.
  */
 typedef struct {
-    FIL file;                        /**< FatFs handle for the current file. */
-    uint8_t buffer[LOG_BUFFER_SIZE];  /**< Bytes waiting to be written. */
-    UINT used;                       /**< Number of valid bytes in buffer. */
-    uint32_t size;                    /**< File size including bytes still buffered. */
-    uint32_t next_number;             /**< Next LOGxxxxx.BIN number to try. */
-    FRESULT error;                    /**< Saved error; later writes stop after a failure. */
-    bool open;                       /**< Whether the FatFs handle needs closing. */
-    char path[LOG_PATH_SIZE];         /**< Current or most recently attempted filename. */
+    /** FatFs handle for the current file. */
+    FIL file;
+    /** Bytes waiting to be written. */
+    uint8_t buffer[LOG_BUFFER_SIZE];
+    /** Number of valid bytes in buffer. */
+    UINT used;
+    /** File size including bytes still buffered. */
+    uint32_t size;
+    /** Next LOGxxxxx.BIN number to try. */
+    uint32_t next_number;
+    /** Saved error; later writes stop after a failure. */
+    FRESULT error;
+    /** Whether the FatFs handle needs closing. */
+    bool open;
+    /** Current or most recently attempted filename. */
+    char path[LOG_PATH_SIZE];
 } log_file_t;
 
 /**
- * Create the first unused LOGxxxxx.BIN, starting at LOG00000.BIN, and sync its header.
- * Requires mounted storage. On failure, call log_file_close() before unmounting:
- * a failed header sync can leave the file open.
- * @param[in,out] log Writer, zero-initialized before first use and currently closed.
- * @return FR_OK on success, FR_EXIST if all names are used, or a FatFs error.
+ * @brief Open the first unused LOGxxxxx.BIN and sync its header.
+ * Requires mounted storage. Call log_file_close() after failure before unmounting.
+ * @param[in,out] log Closed, zero-initialized writer.
+ * @return FR_OK, FR_EXIST if names are exhausted, or a FatFs error.
  */
 FRESULT log_file_open(log_file_t *log);
 
 /**
- * Buffer one framed record, rotating before the file would exceed LOG_ROTATE_BYTES.
- * A full buffer is written as needed; success does not guarantee a completed sync.
- * Stop on errors rather than retrying a record that may have been partly written.
- * @param[in,out] log Open writer owned by the calling storage task.
- * @param record Sample to encode, with length at most LOG_PAYLOAD_MAX.
- * @return FR_OK if buffered, or a parameter, state, or FatFs error.
+ * @brief Buffer a framed record, rotating at LOG_ROTATE_BYTES.
+ * Success does not mean synced. Do not retry failed appends; writes may be partial.
+ * @param[in,out] log Open writer owned by the storage task.
+ * @param record Sample with length at most LOG_PAYLOAD_MAX.
+ * @return FR_OK if buffered, otherwise a parameter, state, or I/O error.
  */
 FRESULT log_file_append(log_file_t *log, const log_record_t *record);
 
 /**
- * Write buffered records and sync the file's data and metadata.
- * @param[in,out] log Open writer owned by the calling storage task.
- * @return FR_OK after a successful sync, or a parameter, state, or saved I/O error.
+ * @brief Write the buffer and sync file data and metadata.
+ * @param[in,out] log Open writer owned by the storage task.
+ * @return FR_OK on success, otherwise a parameter, state, or I/O error.
  */
 FRESULT log_file_sync(log_file_t *log);
 
 /**
- * Flush and close the file, attempting the close even after a write failure.
- * @param[in,out] log Writer to close; an already closed writer returns its saved error.
- * @return The first saved, write, or close error, or FR_OK on success.
+ * @brief Flush and close, attempting cleanup even after a write failure.
+ * @param[in,out] log Writer to close; already closed writers return their saved error.
+ * @return The first saved, write, or close error, or FR_OK.
  */
 FRESULT log_file_close(log_file_t *log);
 
