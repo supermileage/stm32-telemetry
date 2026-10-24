@@ -20,7 +20,7 @@ as the single implementation of `disk_*`. Board configuration and application
 mount policy are outside this adapter.
 
 The storage task owns all FatFs calls because `_FS_REENTRANT = 0`. Sensor
-tasks submit records through the [logger](../../docs/storage_logging.md#submit-records).
+tasks submit records through the [logger](../../firmware/app/storage/storage_logging.md#logging-sensor-data).
 See [hardware](../../docs/hardware.md) for wiring and the
 [firmware guide](../../firmware/README.md) for build setup.
 

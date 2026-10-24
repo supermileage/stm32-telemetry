@@ -1,24 +1,29 @@
 # Board Support
 
-This folder connects the SD card driver to the STM32 hardware using HAL. It handles SPI communication and pin configuration. SD card commands are handled by the driver, while file operations and storage tasks are handled in `app/`.
+This folder contains board-specific code for the B-U585I-IOT02A.
+
+It connects the STM32 hardware to reusable drivers using HAL. Hardware details like pin assignments and peripheral connections stay here instead of in the application or drivers.
 
 ## Files
 
-| Files | Purpose |
+| Path | Purpose |
 | --- | --- |
-| `sd_spi_port.h`, `.cpp` | Handles SPI transfers, chip select, clock speed, and driver callbacks |
-| `b_u585i_iot02a/board_sd.h`, `.cpp` | Configures SPI1 (`hspi1`) and the PE12 chip select pin |
+| `sd_spi_port.h`, `.cpp` | Connects the SD card driver to STM32 HAL |
+| `b_u585i_iot02a/` | Board-specific hardware setup and pin assignments |
 
-## SD Card Setup
+## SD Card
 
-Call `bsp::configureSd()` after CubeMX initializes SPI and GPIO.
+The SD card uses SPI1 with the following connections:
 
-This function:
-- Sets chip select (CS) high
-- Sets the initial SPI clock to 400 kHz or lower
-- Connects STM32 HAL functions to the SD driver
-- Configures timing using `HAL_GetTick()` and `HAL_Delay()`
+| SD Signal | MCU Pin |
+| --- | --- |
+| SCK | PA5 |
+| MISO | PB4 |
+| MOSI | PG4 |
+| CS | PE12 |
 
-This only sets up communication. It does not send commands to the SD card.
+Use 3.3 V logic and a common ground. Format the SD card as FAT32 before use.
 
-SPI uses mode 0, 8-bit transfers, and software-controlled chip select. SD card access should only happen in the storage task, not in interrupts.
+The storage task calls `board_sd_configure()` to connect SPI1 and the chip select pin to the SD driver.
+
+The BSP handles the hardware connection. The SD driver handles card commands, and `app/storage/` handles file operations.

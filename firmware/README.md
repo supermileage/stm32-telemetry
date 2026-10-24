@@ -1,39 +1,49 @@
 # Firmware
 
-STM32U585 firmware for the B-U585I-IOT02A board, using FreeRTOS.
+This folder contains the STM32 firmware for the **B-U585I-IOT02A** development board, built using **STM32CubeIDE**, **STM32 HAL**, and **FreeRTOS**.
 
-## Build and flash
+The project is organized to keep application code separate from hardware-specific code, making it easier to add new features, integrate peripherals, and maintain the firmware.
 
-Initialize the submodules as described in the [repository setup](../README.md#build-and-run).
+## Build and Flash
 
-In STM32CubeIDE:
+Before building, install STM32CubeIDE and initialize the repository submodules. See the [repository setup](../README.md#build-and-run).
 
-1. Import `firmware/` using **File > Import > General > Existing Projects into Workspace**.
-2. Select Debug or Release and use **Project > Build Project**.
-3. Connect the board through its ST-LINK USB port (CN8).
-4. Select **Run As > STM32 C/C++ Application** to flash, or **Debug As** to debug.
+1. Open STM32CubeIDE.
+2. Go to **File > Import > General > Existing Projects into Workspace** and select `firmware/`.
+3. Choose the Debug or Release configuration and build the project.
+4. Connect the board using the ST-LINK USB port (CN8).
+5. Use **Run As > STM32 C/C++ Application** to flash or **Debug As** to debug.
 
-CubeIDE manages the firmware build through `.project` and `.cproject`. Output
-goes to `firmware/Debug/` or `firmware/Release/`. Enable **MCU/MPU Post build
-outputs > Convert to binary file (-O binary)** if you need a `.bin` for releases.
+Build outputs are stored in `Debug/` or `Release/`.
 
-## Source layout
+To generate a `.bin` file, enable **MCU/MPU Post build outputs > Convert to binary file (-O binary)** in the project settings.
 
-| Folder | Contents |
-| --- | --- |
-| `Core/` | CubeMX initialization, startup, and interrupt code |
-| `Drivers/` | STM32 HAL and CMSIS |
-| `Middlewares/` | FreeRTOS and CMSIS-RTOS |
-| `app/` | Application startup, storage, and logging |
-| `BSP/` | Board wiring and HAL adapters |
-| `../lib/` | Shared drivers and libraries, linked as `Lib` in CubeIDE |
+## Project Structure
 
-For startup behavior and ownership rules, see [architecture](../docs/architecture.md).
-For wiring and the first card check, see [hardware](../docs/hardware.md) and
-[storage and logging](../docs/storage_logging.md#check-the-card).
+| Folder | Description |
+|---|---|
+| `Core/` | CubeMX-generated initialization, interrupts, and RTOS setup |
+| `Drivers/` | STM32 HAL and CMSIS drivers |
+| `Middlewares/` | FreeRTOS and other middleware |
+| `app/` | Application logic, tasks, and features |
+| `BSP/` | Board-specific drivers and hardware interfaces |
+| `../lib/` | Shared and reusable libraries |
 
-## API reference
+### Application (`app/`)
 
-The headers document the APIs. If Doxygen is installed, run `doxygen Doxyfile`
-from the repository root to generate `build/docs/html/index.html` for the
-application and BSP.
+Contains the main application code, including tasks, sensor handling, data processing, and other application features.
+
+Application initialization starts in `app.cpp`.
+
+### Board Support Package (`BSP/`)
+
+Contains hardware-specific code and interfaces between the application and STM32 peripherals.
+
+This keeps hardware details separate from application logic and makes drivers easier to reuse.
+
+## Firmware Startup
+
+1. `main()` initializes the MCU, clocks, and peripherals.
+2. `MX_FREERTOS_Init()` initializes the RTOS and calls `app_init()`.
+3. `app_init()` sets up application resources and tasks.
+4. The FreeRTOS scheduler starts and the application tasks begin running.

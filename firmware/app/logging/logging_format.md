@@ -1,6 +1,6 @@
 # Binary logging format
 
-[`log_file.c`](../firmware/app/logging/log_file.c) writes version 1 logs as
+[`log_file.c`](log_file.c) writes version 1 logs as
 `LOG00000.BIN` through `LOG99999.BIN`, using the first unused name.
 Every file starts with a header. All integers are unsigned and little endian.
 
@@ -37,6 +37,12 @@ Each producer defines a source ID and payload format. Encode fields explicitly
 rather than writing a C struct directly. Timestamps restart on boot and wrap
 after `2^32` milliseconds (about 49.7 days).
 
+Application source IDs are registered in
+[`sensors/sources.h`](../sensors/sources.h). Payload types and
+encoders belong to their sensor modules, outside the generic logger.
+The [IMU payload format](../sensors/README.md#imu-vector-payload)
+uses source ID 1. Incompatible payload changes require a new source ID.
+
 ## Reading logs
 
 After validating the file header, read frames in order and check the `REC1`
@@ -46,6 +52,6 @@ and keep earlier valid records. A valid header with no records is an empty log.
 A PC decoder has not been implemented. Its CSV output should use the columns
 `timestamp_ms`, `source`, and `payload_hex`.
 
-See [storage and logging](storage_logging.md) for buffering, rotation, and
+See [storage and logging](../storage/storage_logging.md) for buffering, rotation, and
 shutdown. CRCs detect damaged records but do not protect FAT metadata from
 power loss.

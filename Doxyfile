@@ -3,11 +3,11 @@ PROJECT_NAME           = "STM32 telemetry"
 PROJECT_BRIEF          = "Application and board support API"
 OUTPUT_DIRECTORY       = build/docs
 
-INPUT                  = firmware/app firmware/BSP docs/architecture.md
+INPUT                  = firmware/app firmware/BSP firmware/README.md
 FILE_PATTERNS          = *.h *.c *.cpp *.md
-EXCLUDE_PATTERNS       = */README.md
+EXCLUDE_PATTERNS       = */app/README.md */app/*/README.md */BSP/README.md */BSP/*/README.md
 RECURSIVE              = YES
-USE_MDFILE_AS_MAINPAGE  = docs/architecture.md
+USE_MDFILE_AS_MAINPAGE  = firmware/README.md
 STRIP_FROM_PATH        = .
 JAVADOC_AUTOBRIEF      = YES
 
