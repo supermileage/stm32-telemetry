@@ -7,16 +7,7 @@
 #include "main.h"
 #include "spi.h"
 
-namespace bsp {
-
-bool configureSd() noexcept
-{
-    return sd_spi_port_bind(&hspi1, SD_CS_GPIO_Port, SD_CS_Pin);
-}
-
-} // namespace bsp
-
 bool board_sd_configure(void)
 {
-    return bsp::configureSd();
+    return sd_spi_port_bind(&hspi1, SD_CS_GPIO_Port, SD_CS_Pin);
 }

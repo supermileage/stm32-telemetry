@@ -30,10 +30,8 @@ static FRESULT prepare_card(void)
         return storage_mount_result;
     }
 
-    storage_bringup_state = STORAGE_VERIFYING;
-    storage_verify_result = storage_self_test(storage_test_path);
-    storage_bringup_state = storage_verify_result == FR_OK ? STORAGE_READY : STORAGE_VERIFY_FAILED;
-    return storage_verify_result;
+    storage_bringup_state = STORAGE_READY;
+    return FR_OK;
 }
 
 static void idle_after_shutdown(void)
@@ -49,6 +47,14 @@ static void storage_task(void *argument)
     (void)argument;
     FRESULT result = prepare_card();
     if (hello_test_only) {
+        if (result == FR_OK) {
+            storage_bringup_state = STORAGE_VERIFYING;
+            storage_verify_result = storage_self_test(storage_test_path);
+            if (storage_verify_result != FR_OK) {
+                storage_bringup_state = STORAGE_VERIFY_FAILED;
+            }
+            result = storage_verify_result;
+        }
         storage_unmount_result = storage_unmount();
         if (result == FR_OK) {
             storage_bringup_state = storage_unmount_result == FR_OK ?

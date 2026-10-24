@@ -10,9 +10,9 @@ extern "C" {
 #endif
 
 /**
- * Configure the SD SPI interface after peripheral setup and RTOS kernel init.
- * Call once before the scheduler starts. A setup failure enters Error_Handler().
- * This does not initialize the card or start the storage and logging tasks.
+ * Create the storage task and logger queue after peripheral setup and RTOS
+ * kernel init. Call once before the scheduler starts. The storage task owns
+ * SD setup after scheduling begins and reports failures through logger status.
  */
 void app_init(void);
 

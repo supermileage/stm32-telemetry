@@ -96,7 +96,7 @@ counters. See the header for field definitions.
   500 ms, 200 ms, and 1000 ms respectively. These are not overall call deadlines.
 
 Validate wiring, clock timing, card compatibility, and sustained throughput on
-hardware. Follow the [storage guide](../../../docs/storage_logging.md) for the
+hardware. Follow the [storage guide](../../../firmware/app/storage/storage_logging.md) for the
 application's card check and shutdown sequence.
 
 ## Source and license
