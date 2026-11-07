@@ -96,6 +96,8 @@ void Error_Handler(void);
 #define PC14_OSC32_IN_GPIO_Port GPIOC
 #define OCTOSPI_R_DQS_Pin GPIO_PIN_3
 #define OCTOSPI_R_DQS_GPIO_Port GPIOE
+#define I2C1_SDA_Pin GPIO_PIN_9
+#define I2C1_SDA_GPIO_Port GPIOB
 #define T_SWO_Pin GPIO_PIN_3
 #define T_SWO_GPIO_Port GPIOB
 #define OCTOSPI_R_IO7_Pin GPIO_PIN_7
@@ -110,8 +112,12 @@ void Error_Handler(void);
 #define OCTOSPI_F_IO0_GPIO_Port GPIOF
 #define USER_Button_Pin GPIO_PIN_13
 #define USER_Button_GPIO_Port GPIOC
+#define I2C1_SCL_Pin GPIO_PIN_8
+#define I2C1_SCL_GPIO_Port GPIOB
 #define OCTOSPI_F_IO4_Pin GPIO_PIN_9
 #define OCTOSPI_F_IO4_GPIO_Port GPIOH
+#define I2C2_SCL_Pin GPIO_PIN_4
+#define I2C2_SCL_GPIO_Port GPIOH
 #define LED_RED_Pin GPIO_PIN_6
 #define LED_RED_GPIO_Port GPIOH
 #define OCTOSPI_R_IO0_Pin GPIO_PIN_8
@@ -124,6 +130,8 @@ void Error_Handler(void);
 #define WRLS_SPI2_SCK_GPIO_Port GPIOD
 #define LED_GREEN_Pin GPIO_PIN_7
 #define LED_GREEN_GPIO_Port GPIOH
+#define I2C2_SDA_Pin GPIO_PIN_5
+#define I2C2_SDA_GPIO_Port GPIOH
 #define OCTOSPI_R_IO4_Pin GPIO_PIN_2
 #define OCTOSPI_R_IO4_GPIO_Port GPIOH
 #define T_VCP_RX_Pin GPIO_PIN_10

@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include "flowmeter_task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -82,7 +83,17 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//override putchar so printf prints to uart
+int __io_putchar(char ch) {
+	HAL_UART_Transmit(&huart1, (uint8_t*) &ch, 1, 10);
+	return ch;
+}
 
+void startup(void *parameters) {
+	printf("B-U5-RTOS-Flow-Meter\r\n");
+
+	vTaskDelete(NULL); //delete self
+}
 /* USER CODE END 0 */
 
 /**
@@ -129,7 +140,8 @@ int main(void)
   MX_UCPD1_Init();
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
-
+  xTaskCreate(startup, "Startup print", 256, NULL, 3, NULL); //higher priority so don't need to coordinate uart
+  xTaskCreate(FlowMeter_task, "Flow meter init + drain + log", 512, NULL, 2, NULL); //make higher priority than SD card, and SD card buffer large enough to not overflow
   /* USER CODE END 2 */
 
   /* Init scheduler */
