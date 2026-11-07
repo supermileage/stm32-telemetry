@@ -25,6 +25,7 @@ __pycache__/
 *.ioc.bak
 **/Core/Inc/Backup/
 **/Core/Src/Backup/
+.project
 
 # Operating System generated files
 .DS_Store
