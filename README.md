@@ -31,7 +31,7 @@ The ST-LINK LED should flash during programming. If `FAIL.TXT` appears on the dr
 | Folder | Description |
 |---|---|
 | [firmware/](firmware/README.md) | Main STM32 firmware |
-| `lib/` | Shared drivers, libraries, and dependencies |
+| [lib/](lib/README.md) | Unchanged third-party library submodules |
 | `docs/` | Datasheets and reference documents |
 | [tests/](tests/README.md) | Tests for firmware components |
 | [SubProjects/](SubProjects/README.md) | Separate experiments and development projects |

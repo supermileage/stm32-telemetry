@@ -1,15 +1,31 @@
 #pragma once
-
-#include "spi/spi_bus.h"
+#include "SD_reader.h"
 
 /**
- * @brief Connect the SD driver to a dedicated SPI bus.
+ * @file
+ * @brief Internal SD port interface used by the FatFs adapter.
  *
- * Use mode 0, a fixed clock of 400 kHz or lower, and a CS output initially high.
- * Call from the storage task; close files and unmount before rebinding.
- * @param bus Initialized, long-lived bus; nullptr clears the binding.
- * @param cs_port Chip-select GPIO port.
- * @param cs_pin Chip-select GPIO_PIN_x mask.
- * @return true if bound; false on invalid setup or an unavailable bus. Failure clears the binding.
+ * The storage task owns all calls. Configure through sd_card_configure() before
+ * use; keep each library operation between acquire and release, even on failure.
  */
-bool sd_spi_port_bind(spi_bus_t *bus, GPIO_TypeDef *cs_port, uint16_t cs_pin);
+
+/**
+ * @brief Lock SPI1 for one complete SD library operation, leaving CS high.
+ * @return Card handle valid until release, or nullptr if unconfigured, already
+ *         acquired, called outside task context, or the 50 ms lock wait expires.
+ */
+SD_Card *sd_spi_port_acquire();
+
+/**
+ * @brief Deselect and unlock SPI1 after a library operation.
+ * Callback failures invalidate the card until it is initialized again.
+ * @return false if not acquired or a hardware callback failed; true otherwise.
+ */
+bool sd_spi_port_release();
+
+/**
+ * @brief Read cached initialization state without accessing the card.
+ * @return true after successful initialization with no later I/O failure.
+ * Physical removal is detected by subsequent I/O, not by this check.
+ */
+bool sd_spi_port_is_ready();

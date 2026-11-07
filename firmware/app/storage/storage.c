@@ -4,7 +4,7 @@
  */
 #include "storage.h"
 #include "sd_diskio.h"
-#include "board_sd.h"
+#include "sd_card.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -20,7 +20,7 @@ FRESULT storage_mount(void)
     if (mounted) {
         return FR_OK;
     }
-    if (!board_sd_configure()) {
+    if (!sd_card_configure()) {
         return FR_NOT_READY;
     }
     if (!registered) {

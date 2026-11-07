@@ -25,7 +25,7 @@ bool spi_bus_init(spi_bus_t *bus, SPI_HandleTypeDef *handle)
     if (bus->mutex != NULL) {
         return bus->handle == handle;
     }
-    /* These are fixed CubeMX settings. */
+    /* Catch CubeMX changes that would break the byte-oriented software-CS API. */
     configASSERT(handle->Init.Mode == SPI_MODE_MASTER);
     configASSERT(handle->Init.Direction == SPI_DIRECTION_2LINES);
     configASSERT(handle->Init.DataSize == SPI_DATASIZE_8BIT);

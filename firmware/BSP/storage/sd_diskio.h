@@ -7,7 +7,8 @@
  *
  * Supports one card on drive 0. Configure the SD SPI port before mounting.
  * Registration does not initialize the card or mount a filesystem. Serialize
- * all adapter, FatFs, and SD driver calls in the same owning context.
+ * all adapter, FatFs, and SD driver calls in the storage task. Card status is
+ * cached; no card-detect GPIO or write-protect switch is read.
  */
 
 #include <stdbool.h>

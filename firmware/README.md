@@ -26,8 +26,9 @@ To generate a `.bin` file, enable **MCU/MPU Post build outputs > Convert to bina
 | `Drivers/` | STM32 HAL and CMSIS drivers |
 | `Middlewares/` | FreeRTOS and other middleware |
 | `app/` | Application logic, tasks, and features |
-| `BSP/` | Board-specific drivers and hardware interfaces |
-| `../lib/` | Shared and reusable libraries |
+| `bsp/` | Board-specific drivers and hardware interfaces |
+| `config/` | Project-specific library configuration |
+| `../lib/` | Third-party submodules |
 
 ### Application (`app/`)
 
@@ -35,7 +36,7 @@ Contains the main application code, including tasks, sensor handling, data proce
 
 Application initialization starts in `app.cpp`.
 
-### Board Support Package (`BSP/`)
+### Board Support Package (`bsp/`)
 
 Contains hardware-specific code and interfaces between the application and STM32 peripherals.
 

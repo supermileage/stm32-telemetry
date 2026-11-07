@@ -2,16 +2,18 @@
 
 The BSP handles hardware communication for the **B-U585I-IOT02A** board using STM32 HAL and FreeRTOS.
 
-It provides a common way to access peripherals such as SPI and UART, keeping hardware-specific code separate from the application.
+It provides blocking SPI transactions and connects the SD protocol library to
+SPI1 and FatFs. The UART files are placeholders with no implementation.
 
 ## Structure
 
 | Path | Description |
 |---|---|
 | `spi/spi_bus.h`, `.c` | SPI communication and bus management |
-| `storage/sd_spi_port.hpp`, `.cpp` | Connects the SD card driver to SPI |
-| `b_u585i_iot02a/board_sd.h`, `.cpp` | SD card pin assignments and board setup |
-| `uart/` | UART communication |
+| `storage/sd_spi_port.hpp`, `.cpp` | Board binding, SPI callbacks, and SD operation ownership |
+| `storage/sd_diskio.h`, `.cpp` | Connects the external SD library to FatFs |
+| `storage/sd_card.h` | C entry point for SD setup, implemented in `sd_spi_port.cpp` |
+| `uart/` | Empty placeholders |
 
 ## SPI
 
@@ -41,51 +43,6 @@ so the debugger stops at the setting that needs fixing. Update the CubeMX
 configuration and regenerate if one of these assertions fires.
 
 **Note:** SPI1 is already configured correctly. SPI2 currently uses 4-bit data and hardware NSS, so its CubeMX settings need to be updated before using this module.
-
-### Example
-
-The following shows how to communicate with a SPI sensor.
-
-**This is an example only.** In the current firmware, SPI1 is dedicated to the SD card and should not be shared with another device.
-
-```c
-#include "spi/spi_bus.h"
-#include "spi.h"
-
-static spi_bus_t bus = {0};
-
-static spi_device_t sensor = {
-    .bus = &bus,
-    .cs_port = GPIOE,
-    .cs_pin = GPIO_PIN_11,
-};
-
-// Initialize once after CubeMX peripheral setup.
-bool sensor_bus_init(void)
-{
-    return spi_bus_init(&bus, &hspi1);
-}
-
-// Call from a FreeRTOS task.
-bool sensor_exchange(
-    const uint8_t *tx,
-    uint8_t *rx,
-    uint16_t size)
-{
-    if (!spi_acquire(&sensor, pdMS_TO_TICKS(50U))) {
-        return false;
-    }
-
-    bool ok = spi_select(&sensor, true);
-
-    if (ok) {
-        ok = spi_exchange(&sensor, tx, rx, size, 50U);
-    }
-
-    spi_release(&sensor);
-    return ok;
-}
-```
 
 ### How it works
 
@@ -132,16 +89,24 @@ Use 3.3 V logic, a common ground, and a FAT32-formatted SD card.
 
 ### Initialization
 
-The storage task calls `storage_mount()`, which uses `board_sd_configure()` to set up SPI and register the SD driver callbacks.
+The storage task calls `storage_mount()`, which uses `sd_card_configure()` to
+check SPI1 and bind the SD library callbacks. `sd_diskio_register()` connects
+the FatFs adapter as drive 0, and `f_mount()` initializes the card.
+
+The board binding lives in `sd_spi_port.cpp`; there is no runtime bus or pin
+selection API. `sd_card.h` exposes setup to C application code, while
+`sd_spi_port.hpp` is the internal C++ interface used by the FatFs adapter.
 
 Configure a fixed clock of 400 kHz or less in CubeMX. The SD driver uses that
 same clock for initialization and normal reads and writes.
 
 SPI1's `.ioc` configuration disables NSS pulses and keeps SCK/MOSI driven between
 transfers. The generated `Core/Src/spi.c` uses those same settings. The current
-16 MHz source and /64 prescaler give 250 kHz for all SD operations. There is no
-clock lookup, divider selection, or speed switch in the application or driver.
-Keeping the startup clock also means lower throughput than running at 4 MHz.
+16 MHz source and /64 prescaler give 250 kHz for all SD operations. Board setup
+reads the selected peripheral clock and divider to validate this rate; it does
+not change the peripheral settings. Both library speed modes use this fixed clock.
+Keeping the startup clock limits throughput; this port does not switch to a
+faster transfer clock.
 
 ### Important notes
 
@@ -151,3 +116,6 @@ Keeping the startup clock also means lower throughput than running at 4 MHz.
 - The SD adapter manages bus locking separately from chip select because SD initialization requires clock transfers even when CS is high.
 
 SD card commands belong in the SD driver, while file operations and storage management belong in `app/storage/`.
+
+The protocol implementation is the unchanged `lib/sd_spi` submodule. See the
+[library guide](../../lib/README.md) for source selection and validation.

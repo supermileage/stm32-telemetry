@@ -2,7 +2,7 @@
 
 This folder contains the application startup, storage, logging, and sensor code.
 
-Hardware setup stays in `Core/` and `BSP/`, while reusable drivers are in `lib/`.
+Hardware setup stays in `Core/` and `bsp/`, while reusable drivers are in `lib/`.
 
 ## Files
 

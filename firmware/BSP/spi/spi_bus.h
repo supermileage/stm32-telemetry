@@ -22,7 +22,8 @@ typedef struct spi_device spi_device_t;
  * @brief One SPI peripheral and the mutex shared by its devices.
  *
  * All devices on that bus use the same object.
- * Zero-initialize it, and don't copy it once the mutex has been created. */
+ * Zero-initialize it, and don't copy it once the mutex has been created.
+ */
 typedef struct {
     /** HAL handle initialized by CubeMX. */
     SPI_HandleTypeDef *handle;
@@ -47,7 +48,8 @@ struct spi_device {
 /**
  * @brief Create the mutex for a CubeMX-initialized SPI peripheral.
  *
- * Call before tasks use the bus. Fixed SPI settings are checked with configASSERT().
+ * Initialize once, without concurrent callers, before tasks use the bus.
+ * Fixed SPI settings are checked with configASSERT().
  * Use master, full-duplex 8-bit, MSB-first SPI with software NSS and no TI mode or CRC.
  * Configure CS outputs high.
  *
@@ -62,6 +64,7 @@ bool spi_bus_init(spi_bus_t *bus, SPI_HandleTypeDef *handle);
  * @brief Lock the bus for a transaction, leaving CS high.
  *
  * Task context only, with the scheduler running. Calls cannot be nested.
+ * Mode and clock stay at their CubeMX settings; all devices must support them.
  * @param device Device to keep valid and unchanged until release.
  * @param wait_ticks Mutex timeout in FreeRTOS ticks.
  * @return true if acquired; false for invalid input, wrong context, nesting, or timeout.

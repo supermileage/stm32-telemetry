@@ -1,9 +1,9 @@
-[submodule "lib/sd_card/upstream"]
-	path = lib/sd_card/upstream
-	url = https://github.com/kiwih/cubeide-sd-card.git
-[submodule "lib/fatfs/upstream"]
-	path = lib/fatfs/upstream
+[submodule "lib/fatfs"]
+	path = lib/fatfs
 	url = https://github.com/STMicroelectronics/stm32-mw-fatfs.git
 [submodule "lib/minmea"]
 	path = lib/minmea
-	url = git@github.com:kosma/minmea.git
+	url = https://github.com/kosma/minmea.git
+[submodule "lib/sd_spi"]
+	path = lib/sd_spi
+	url = https://github.com/akasa828/STM32_HAL-SPI_SD-FatFs.git
