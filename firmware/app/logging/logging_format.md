@@ -40,8 +40,9 @@ after `2^32` milliseconds (about 49.7 days).
 Application source IDs are registered in
 [`sensors/sources.h`](../sensors/sources.h). Payload types and
 encoders belong to their sensor modules, outside the generic logger.
-The [IMU payload format](../sensors/README.md#imu-vector-payload)
-uses source ID 1. Incompatible payload changes require a new source ID.
+Source ID 1 is reserved for IMU data.
+See the [sensor guide](../sensors/README.md). Incompatible payload changes require
+a new source ID.
 
 ## Reading logs
 
@@ -49,7 +50,7 @@ After validating the file header, read frames in order and check the `REC1`
 marker, payload length, and CRC. Stop at the first corrupt or incomplete frame
 and keep earlier valid records. A valid header with no records is an empty log.
 
-A PC decoder has not been implemented. Its CSV output should use the columns
+For CSV exports, use the columns
 `timestamp_ms`, `source`, and `payload_hex`.
 
 See [storage and logging](../storage/storage_logging.md) for buffering, rotation, and

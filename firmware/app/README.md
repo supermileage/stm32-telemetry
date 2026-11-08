@@ -21,13 +21,15 @@ Hardware setup stays in `Core/` and `bsp/`, while reusable drivers are in `lib/`
 2. When the scheduler starts, the storage task calls `storage_mount()` to configure the SD card and mount the filesystem.
 3. The storage task opens the log file and handles all SD card operations.
 
-Storage errors are reported through logger status.
+Storage errors are reported through `logger_get_status()`. The storage task is
+the only caller of FatFs and the SD driver; producers use the logger queue.
+The C headers include their own C++ linkage guards.
 
 ## Sensor Logging
 
-Each sensor encodes its data before sending it to the logger. The logger queues the records and writes them to a binary file with framing and CRC checks.
+Sensor tasks encode samples and submit them to the logger. The logger queues
+the records and writes them to binary files with framing and CRC checks.
 
-Source IDs are defined in `sensors/sources.h`. A PC decoder for converting binary
-logs to CSV is not included yet.
-
-See [sensor payloads](sensors/README.md) for the IMU format and a logging example.
+Source IDs are defined in `sensors/sources.h`. See the
+[sensor guide](sensors/README.md) for how to prepare and submit records, and the
+[binary format](logging/logging_format.md) for reading log files.

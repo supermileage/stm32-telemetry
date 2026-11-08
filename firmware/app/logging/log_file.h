@@ -10,6 +10,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Size of the RAM write buffer in bytes. */
 #define LOG_BUFFER_SIZE 4096U
 /** Maximum file size, including the header and record framing. */
@@ -43,7 +47,8 @@ typedef struct {
 
 /**
  * @brief Open the first unused LOGxxxxx.BIN and sync its header.
- * Requires mounted storage. Call log_file_close() after failure before unmounting.
+ * Requires mounted storage. Each open searches from LOG00000.BIN again.
+ * Call log_file_close() after failure before unmounting.
  * @param[in,out] log Closed, zero-initialized writer.
  * @return FR_OK, FR_EXIST if names are exhausted, or a FatFs error.
  */
@@ -67,9 +72,15 @@ FRESULT log_file_sync(log_file_t *log);
 
 /**
  * @brief Flush and close, attempting cleanup even after a write failure.
+ * After a close error, stop using this writer and unmount; restarting storage
+ * requires a reboot. A failed FatFs close may leave its handle valid.
  * @param[in,out] log Writer to close; already closed writers return their saved error.
  * @return The first saved, write, or close error, or FR_OK.
  */
 FRESULT log_file_close(log_file_t *log);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

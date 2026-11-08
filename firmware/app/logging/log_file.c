@@ -1,7 +1,3 @@
-/**
- * @file
- * @brief Binary framing, buffered writes, and log file rotation.
- */
 #include "log_file.h"
 
 #include <stdio.h>
@@ -36,6 +32,7 @@ static uint32_t crc32(const uint8_t *p, UINT size)
 static FRESULT flush_buffer(log_file_t *log)
 {
     if (log->error != FR_OK) {
+        /* A failed write may be partial; retrying the buffer could duplicate bytes. */
         return log->error;
     }
     if (log->used == 0U) {
@@ -69,7 +66,7 @@ static FRESULT open_next(log_file_t *log)
         return result;
     }
     log->open = true;
-    /* File header: magic, version, header size, timestamp Hz, reserved. */
+    /* Version 1 header, little endian: STML, version, size, 1000 Hz, reserved. */
     static const uint8_t header[16] = {
         'S', 'T', 'M', 'L', 1, 0, 16, 0, 0xE8, 3, 0, 0, 0, 0, 0, 0
     };
@@ -117,6 +114,7 @@ FRESULT log_file_append(log_file_t *log, const log_record_t *record)
         return log->error;
     }
     uint8_t *frame = log->buffer + log->used;
+    /* Encode fields explicitly: struct padding and native byte order are not the format. */
     memcpy(frame, "REC1", 4U);
     put_u32_le(frame + 4U, record->timestamp_ms);
     put_u16_le(frame + 8U, record->source);
@@ -152,6 +150,7 @@ FRESULT log_file_close(log_file_t *log)
     }
     FRESULT result = flush_buffer(log);
     FRESULT closed = f_close(&log->file);
+    /* The worker stops and unmounts on failure; this writer does not retry closes. */
     log->open = false;
     log->error = result == FR_OK ? closed : result;
     return log->error;

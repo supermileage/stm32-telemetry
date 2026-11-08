@@ -3,17 +3,16 @@
 The BSP handles hardware communication for the **B-U585I-IOT02A** board using STM32 HAL and FreeRTOS.
 
 It provides blocking SPI transactions and connects the SD protocol library to
-SPI1 and FatFs. The UART files are placeholders with no implementation.
+SPI1 and FatFs.
 
 ## Structure
 
 | Path | Description |
 |---|---|
 | `spi/spi_bus.h`, `.c` | SPI communication and bus management |
-| `storage/sd_spi_port.hpp`, `.cpp` | Board binding, SPI callbacks, and SD operation ownership |
+| `storage/sd_spi_port.hpp`, `.cpp` | SD card setup, SPI callbacks, and bus locking |
 | `storage/sd_diskio.h`, `.cpp` | Connects the external SD library to FatFs |
 | `storage/sd_card.h` | C entry point for SD setup, implemented in `sd_spi_port.cpp` |
-| `uart/` | Empty placeholders |
 
 ## SPI
 
@@ -42,7 +41,8 @@ ready. Fixed configuration mistakes trigger separate `configASSERT()` checks,
 so the debugger stops at the setting that needs fixing. Update the CubeMX
 configuration and regenerate if one of these assertions fires.
 
-**Note:** SPI1 is already configured correctly. SPI2 currently uses 4-bit data and hardware NSS, so its CubeMX settings need to be updated before using this module.
+SPI2 uses 4-bit data and hardware NSS. Update those CubeMX settings before
+using this module with SPI2.
 
 ### How it works
 
@@ -93,8 +93,8 @@ The storage task calls `storage_mount()`, which uses `sd_card_configure()` to
 check SPI1 and bind the SD library callbacks. `sd_diskio_register()` connects
 the FatFs adapter as drive 0, and `f_mount()` initializes the card.
 
-The board binding lives in `sd_spi_port.cpp`; there is no runtime bus or pin
-selection API. `sd_card.h` exposes setup to C application code, while
+The SPI1 and chip-select setup lives in `sd_spi_port.cpp`.
+`sd_card.h` exposes setup to C application code, while
 `sd_spi_port.hpp` is the internal C++ interface used by the FatFs adapter.
 
 Configure a fixed clock of 400 kHz or less in CubeMX. The SD driver uses that
@@ -117,5 +117,5 @@ faster transfer clock.
 
 SD card commands belong in the SD driver, while file operations and storage management belong in `app/storage/`.
 
-The protocol implementation is the unchanged `lib/sd_spi` submodule. See the
+The SD protocol code lives in the `lib/sd_spi` submodule. See the
 [library guide](../../lib/README.md) for source selection and validation.

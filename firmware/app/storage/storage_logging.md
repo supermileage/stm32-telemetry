@@ -20,6 +20,7 @@ To test only the SD card, replace it with `storage_start_hello_test()`.
 Only one mode can run per boot. Reboot the board to restart storage after it stops or fails.
 
 The storage task uses:
+
 - A queue that holds up to 64 commands
 - A 4 KiB task stack
 - A 4 KiB write buffer
@@ -51,32 +52,22 @@ If mounting or verification fails, check the SD card formatting, wiring, and SPI
 Sensor tasks submit records using `logger_submit()`.
 
 Each record contains:
+
 - **Timestamp:** Time in milliseconds since boot
 - **Source ID:** Identifies the sensor or data format
 - **Length:** Number of payload bytes
 - **Payload:** Up to 64 bytes of sensor data
 
-Define sample types and payload encoders in the sensor module, and register
-source IDs in `sensors/sources.h`. For example, submit an IMU vector from a C task:
-
-```c
-#include "logging/logger.h"
-#include "sensors/imu_record.h"
-
-bool log_imu_sample(const imu_sample_t *sample, uint32_t timestamp_ms)
-{
-    log_record_t record;
-    return imu_record_encode(&record, timestamp_ms, sample) &&
-        logger_submit(&record);
-}
-```
-
-The [sensor payload guide](../sensors/README.md) documents the
-units and byte layout. The generic logger does not interpret payloads.
+Zero-initialize a `log_record_t`, fill its timestamp, source, length, and encoded
+payload, then call `logger_submit(&record)`. Define sample types and payload
+encoders in the sensor module, and register source IDs in `sensors/sources.h`.
+The [sensor guide](../sensors/README.md) describes how to prepare and submit
+records. The logger stores payloads without interpreting them.
 
 The queue copies the record, so the sensor task can reuse its memory immediately.
 
 `logger_submit()` returns:
+
 - `true` if the record was added to the queue
 - `false` if the logger is unavailable, the record is invalid, or the queue is full
 
@@ -96,7 +87,7 @@ portYIELD_FROM_ISR(woken);
 
 The interrupt must use a FreeRTOS-safe priority (currently numerical priority 5 or greater).
 
-For C++ code, wrap the storage and logger headers in `extern "C"`.
+Storage and logger headers can be included directly from C or C++.
 
 ## Saving data and shutting down
 
@@ -147,5 +138,3 @@ All record counters are 32-bit and can wrap around.
 | `LOGGER_FAILED` | Logger status and FatFs error codes |
 
 If the card becomes full or a write fails, logging stops. Fix the problem and reboot the board.
-
-There is also a known issue in `log_file_close()` where the file may not close correctly after an `f_close()` failure. Reboot after a failed close.

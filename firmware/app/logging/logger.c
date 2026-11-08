@@ -1,7 +1,3 @@
-/**
- * @file
- * @brief Static logger queue and shared status for producers and the storage task.
- */
 #include "logger_worker.h"
 #include "queue.h"
 #include "task.h"
@@ -11,6 +7,7 @@
 static StaticQueue_t queue_control;
 static uint8_t queue_storage[LOGGER_QUEUE_DEPTH * sizeof(logger_command_t)];
 static QueueHandle_t commands;
+/* Task and syscall-safe ISR access is protected by FreeRTOS critical sections. */
 static logger_status_t status;
 
 static bool can_accept_records(void)

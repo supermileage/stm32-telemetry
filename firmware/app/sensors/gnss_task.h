@@ -1,18 +1,13 @@
 /**
  * @file
- * @brief Startup interface for the GNSS UART receive task.
+ * @brief Reserved startup interface for the unimplemented GNSS task.
  */
-# pragma once
+#pragma once
 
-#include "usart.h"
-
+#include "stm32u5xx_hal.h"
 
 /**
- * @brief Start the GNSS receive task on its UART.
- *
- * Configures the UART for GNSS comms, prepares the receive buffer,
- * and creates the task that processes incoming GNSS data.
- *
- * @param huart Pointer to the UART handle connected to the GNSS receiver.
+ * @brief Reserved entry point for GNSS task startup.
+ * @param huart UART handle intended for the GNSS receiver.
  */
 void gnss_start_task(UART_HandleTypeDef *huart);

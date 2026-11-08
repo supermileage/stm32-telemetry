@@ -1,51 +1,25 @@
-# Sensor payloads
+# Sensor records
 
-Sensor modules own native sample types and explicit payload encoders. The
-generic logger only copies `log_record_t`; it does not interpret sensor IDs or
-payload fields. Register each format in `sources.h` and keep IDs stable for
-decoders. Allocate a new ID if a payload changes incompatibly.
+Sensor tasks collect samples, encode their payloads, and send records to the
+logger. The logger handles the queue and file writes without interpreting the
+sensor data.
 
-`imu_record.h` and `imu_record.c` provide the IMU vector type and encoder.
-They require no HAL or RTOS and do not submit records themselves. Acquisition
-integration is still in development.
+Source IDs are defined in `sources.h`, with `LOG_SOURCE_IMU` (1) reserved for IMU
+data. Keep IDs stable for decoders; an incompatible payload change needs a new ID.
 
-## IMU vector payload
+To log a sample, zero-initialize a `log_record_t` and fill in its timestamp in
+milliseconds since boot, source ID, and encoded payload. Set `length` to the
+number of payload bytes, up to `LOG_PAYLOAD_MAX`, then call `logger_submit()`
+from the acquisition task.
 
-Source ID: `LOG_SOURCE_IMU` (1). Payload length: 13 bytes.
+The queue copies the record, so the task can reuse it immediately. A false
+return means the logger is unavailable, the queue is full, or the record is
+invalid.
 
-| Offset | Bytes | Meaning |
-| --- | --- | --- |
-| 0 | 1 | Sample type: 1 = gyroscope, 2 = accelerometer |
-| 1 | 4 | Signed X axis, little endian, two's complement |
-| 5 | 4 | Signed Y axis, little endian, two's complement |
-| 9 | 4 | Signed Z axis, little endian, two's complement |
+Keep sample types and encoders in the sensor module. Document each payload's
+units, byte order, and field sizes before using it in logs. Do not write native
+C structs directly: padding and enum sizes are not a stable file format.
 
-Gyroscope axes use millidegrees per second; accelerometer axes use milligravity
-(mg), matching the IMU prototype. Convert measurements into those units before
-encoding. The native struct's padding and enum size are never written to disk.
-
-The record timestamp is the sample time in milliseconds since MCU boot. For
-FIFO samples, the acquisition task must derive it from the sensor timestamps
-and their relationship to MCU time. FIFO timestamp tags are timing information,
-not vector samples accepted by this encoder.
-
-## Submit a sample
-
-From a C acquisition task:
-
-```c
-#include "sensors/imu_record.h"
-#include "logging/logger.h"
-
-bool log_imu_sample(const imu_sample_t *sample, uint32_t timestamp_ms)
-{
-    log_record_t record;
-    return imu_record_encode(&record, timestamp_ms, sample) &&
-        logger_submit(&record);
-}
-```
-
-The encoder initializes the whole record and rejects unknown types or NULL
-pointers. The acquisition task handles queue rejection and recovery decisions.
-PC decoders dispatch on the registered source ID and convert the payload to
-CSV; sensor-specific CSV formatting does not belong in the firmware logger.
+See [storage and logging](../storage/storage_logging.md) for startup, ISR
+submission, status, and shutdown, and the [binary format](../logging/logging_format.md)
+for framing and CRC details.

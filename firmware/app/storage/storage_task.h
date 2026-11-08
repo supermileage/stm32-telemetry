@@ -7,6 +7,10 @@
 
 #include "storage.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Startup progress only; later logging failures are reported by logger_get_status(). */
 typedef enum {
     /** No storage task has begun running. */
@@ -53,5 +57,9 @@ void storage_start_task(void);
  * the card. The first start call chooses the boot mode; reboot to run again.
  */
 void storage_start_hello_test(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

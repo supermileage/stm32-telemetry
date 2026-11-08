@@ -1,9 +1,4 @@
-/**
- * @file
- * @brief Storage startup, logger command processing, and shutdown.
- */
 #include "storage_task.h"
-#include "storage.h"
 #include "logging/logger_worker.h"
 #include "logging/log_file.h"
 #include "FreeRTOS.h"
@@ -16,27 +11,16 @@ volatile FRESULT storage_unmount_result = FR_NOT_READY;
 char storage_test_path[STORAGE_TEST_PATH_SIZE];
 
 static StaticTask_t storage_task_control;
-static StackType_t storage_task_stack[1024];
+/* FreeRTOS stack depths count StackType_t entries, not bytes (4 KiB here). */
+enum { STORAGE_STACK_DEPTH = 1024U };
+static StackType_t storage_task_stack[STORAGE_STACK_DEPTH];
 static TaskHandle_t storage_task_handle;
 static log_file_t log_file;
 static bool hello_test_only;
 
-static FRESULT prepare_card(void)
-{
-    storage_bringup_state = STORAGE_MOUNTING;
-    storage_mount_result = storage_mount();
-    if (storage_mount_result != FR_OK) {
-        storage_bringup_state = STORAGE_MOUNT_FAILED;
-        return storage_mount_result;
-    }
-
-    storage_bringup_state = STORAGE_READY;
-    return FR_OK;
-}
-
 static void idle_after_shutdown(void)
 {
-    /* heap_1 does not support deleting tasks. */
+    /* Stay alive after cleanup: heap_1 does not support task deletion. */
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000U));
     }
@@ -45,7 +29,10 @@ static void idle_after_shutdown(void)
 static void storage_task(void *argument)
 {
     (void)argument;
-    FRESULT result = prepare_card();
+    storage_bringup_state = STORAGE_MOUNTING;
+    FRESULT result = storage_mount();
+    storage_mount_result = result;
+    storage_bringup_state = result == FR_OK ? STORAGE_READY : STORAGE_MOUNT_FAILED;
     if (hello_test_only) {
         if (result == FR_OK) {
             storage_bringup_state = STORAGE_VERIFYING;
@@ -67,6 +54,7 @@ static void storage_task(void *argument)
     if (result == FR_OK) {
         result = log_file_open(&log_file);
     }
+    bool stopped = false;
     if (result == FR_OK) {
         logger_worker_ready(log_file.path);
         TickType_t last_sync = xTaskGetTickCount();
@@ -74,7 +62,6 @@ static void storage_task(void *argument)
         if (interval == 0U) {
             interval = 1U;
         }
-        bool stopped = false;
         while (result == FR_OK && !stopped) {
             /* Unsigned subtraction keeps the interval valid across a tick wrap. */
             TickType_t elapsed = xTaskGetTickCount() - last_sync;
@@ -110,25 +97,21 @@ static void storage_task(void *argument)
                 last_sync = xTaskGetTickCount();
             }
         }
-        FRESULT closed = log_file_close(&log_file);
-        /* Finish cleanup without hiding the error that stopped logging. */
-        if (result == FR_OK) {
-            result = closed;
-        }
-        if (result == FR_OK) {
-            logger_worker_synced();
-        }
-        storage_unmount_result = storage_unmount();
-        if (result == FR_OK) {
-            result = storage_unmount_result;
-        }
-        logger_worker_finish(result, stopped);
-    } else {
-        /* A header sync failure can leave a file handle open. */
-        (void)log_file_close(&log_file);
-        storage_unmount_result = storage_unmount();
-        logger_worker_finish(result, false);
     }
+
+    /* Even a failed header sync can leave an open file. Preserve the first error. */
+    FRESULT closed = log_file_close(&log_file);
+    if (result == FR_OK) {
+        result = closed;
+    }
+    if (result == FR_OK) {
+        logger_worker_synced();
+    }
+    storage_unmount_result = storage_unmount();
+    if (result == FR_OK) {
+        result = storage_unmount_result;
+    }
+    logger_worker_finish(result, stopped);
     idle_after_shutdown();
 }
 
@@ -141,7 +124,7 @@ static void start_storage(bool test_only)
     if (!test_only) {
         logger_initialize();
     }
-    storage_task_handle = xTaskCreateStatic(storage_task, "sd_storage", 1024U,
+    storage_task_handle = xTaskCreateStatic(storage_task, "sd_storage", STORAGE_STACK_DEPTH,
         NULL, tskIDLE_PRIORITY + 1U, storage_task_stack, &storage_task_control);
     if (storage_task_handle == NULL) {
         storage_mount_result = FR_INT_ERR;

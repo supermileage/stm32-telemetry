@@ -1,7 +1,3 @@
-/**
- * @file
- * @brief SD volume lifecycle and a file write/read-back check.
- */
 #include "storage.h"
 #include "sd_diskio.h"
 #include "sd_card.h"
@@ -33,7 +29,7 @@ FRESULT storage_mount(void)
     if (result == FR_OK) {
         mounted = true;
     } else {
-        /* Unlinking also clears ST's cached disk initialization flag. */
+        /* Relink on retry so ST's dispatcher resets its cached initialization flag. */
         (void)f_mount(NULL, drive_path, 0U);
         (void)sd_diskio_unregister(drive_path);
         registered = false;
@@ -96,7 +92,7 @@ FRESULT storage_self_test(char path[STORAGE_TEST_PATH_SIZE])
         return result;
     }
 
-    /* Reopen the file so the check goes through FatFs again. */
+    /* Reopen to verify through FatFs; this is not a power-loss durability test. */
     result = f_open(&test_file, path, FA_READ);
     if (result != FR_OK) {
         return result;

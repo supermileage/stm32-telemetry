@@ -10,6 +10,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Queue capacity shared by records, flush requests, and stop requests. */
 #define LOGGER_QUEUE_DEPTH 64U
 /** Target time between syncs; scheduling and card latency can delay them. */
@@ -67,6 +71,8 @@ bool logger_submit(const log_record_t *record);
 
 /**
  * @brief Queue a record from a FreeRTOS syscall-safe interrupt.
+ * Storage must have started before enabling producer interrupts. The NVIC
+ * priority must satisfy configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY.
  * @param record Sample to copy, with length at most LOG_PAYLOAD_MAX.
  * @param[in,out] higher_priority_task_woken Initialize to pdFALSE; pass to portYIELD_FROM_ISR afterward.
  * @return true if queued; false for invalid input, a full queue, or an unavailable logger.
@@ -93,5 +99,9 @@ bool logger_request_stop(void);
  * @param[out] out Snapshot destination; NULL is ignored.
  */
 void logger_get_status(logger_status_t *out);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

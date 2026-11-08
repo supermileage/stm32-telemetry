@@ -5,12 +5,17 @@
  * Producers use logger.h. Initialize before the scheduler and producer interrupts
  * start. The storage task uses the remaining functions; startup also reports task
  * creation failure through logger_worker_finish(). None of these calls are ISR-safe.
+ * This is an internal interface between the logger and storage task.
  */
 #ifndef LOGGER_WORKER_H
 #define LOGGER_WORKER_H
 
 #include "logger.h"
 #include "ff.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Commands are processed in queue order, so flush and stop follow earlier records. */
 typedef enum {
@@ -70,5 +75,9 @@ void logger_worker_synced(void);
  * @param stopped true if a stop command was received.
  */
 void logger_worker_finish(FRESULT result, bool stopped);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
