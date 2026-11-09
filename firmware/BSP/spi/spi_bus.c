@@ -8,32 +8,12 @@ static bool is_task_context(void)
     return __get_IPSR() == 0U && xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
 }
 
-static bool is_valid_device(const spi_device_t *device)
-{
-    return device != NULL && device->bus != NULL &&
-           device->bus->handle != NULL && device->bus->mutex != NULL &&
-           device->cs_port != NULL && device->cs_pin != 0U &&
-           (device->cs_pin & (device->cs_pin - 1U)) == 0U;
-}
-
 static bool owns_bus(const spi_device_t *device)
 {
     return is_task_context() && device != NULL && device->bus != NULL &&
            device->bus->mutex != NULL &&
            xSemaphoreGetMutexHolder(device->bus->mutex) == xTaskGetCurrentTaskHandle() &&
            device->bus->active_device == device;
-}
-
-static void assert_spi_configuration(const SPI_HandleTypeDef *handle)
-{
-    /* Catch CubeMX changes that would break the byte-oriented software-CS API. */
-    configASSERT(handle->Init.Mode == SPI_MODE_MASTER);
-    configASSERT(handle->Init.Direction == SPI_DIRECTION_2LINES);
-    configASSERT(handle->Init.DataSize == SPI_DATASIZE_8BIT);
-    configASSERT(handle->Init.FirstBit == SPI_FIRSTBIT_MSB);
-    configASSERT(handle->Init.NSS == SPI_NSS_SOFT);
-    configASSERT(handle->Init.TIMode == SPI_TIMODE_DISABLE);
-    configASSERT(handle->Init.CRCCalculation == SPI_CRCCALCULATION_DISABLE);
 }
 
 bool spi_bus_init(spi_bus_t *bus, SPI_HandleTypeDef *handle)
@@ -45,7 +25,14 @@ bool spi_bus_init(spi_bus_t *bus, SPI_HandleTypeDef *handle)
     if (bus->mutex != NULL) {
         return bus->handle == handle;
     }
-    assert_spi_configuration(handle);
+    /* Check fixed CubeMX settings once, before publishing the initialized bus. */
+    configASSERT(handle->Init.Mode == SPI_MODE_MASTER);
+    configASSERT(handle->Init.Direction == SPI_DIRECTION_2LINES);
+    configASSERT(handle->Init.DataSize == SPI_DATASIZE_8BIT);
+    configASSERT(handle->Init.FirstBit == SPI_FIRSTBIT_MSB);
+    configASSERT(handle->Init.NSS == SPI_NSS_SOFT);
+    configASSERT(handle->Init.TIMode == SPI_TIMODE_DISABLE);
+    configASSERT(handle->Init.CRCCalculation == SPI_CRCCALCULATION_DISABLE);
     bus->mutex = xSemaphoreCreateMutexStatic(&bus->mutex_storage);
     if (bus->mutex == NULL) {
         return false;
@@ -55,9 +42,11 @@ bool spi_bus_init(spi_bus_t *bus, SPI_HandleTypeDef *handle)
     return true;
 }
 
-static bool acquire_bus(const spi_device_t *device, TickType_t wait_ticks)
+static bool acquire_bus(const spi_device_t *device, TickType_t wait_ticks, bool selected)
 {
-    if (!is_task_context() || !is_valid_device(device)) {
+    if (!is_task_context() || device == NULL || device->bus == NULL ||
+        device->bus->mutex == NULL || device->cs_port == NULL || device->cs_pin == 0U ||
+        (device->cs_pin & (device->cs_pin - 1U)) != 0U) {
         return false;
     }
     spi_bus_t *bus = device->bus;
@@ -67,16 +56,14 @@ static bool acquire_bus(const spi_device_t *device, TickType_t wait_ticks)
         return false;
     }
     bus->active_device = device;
+    HAL_GPIO_WritePin(device->cs_port, device->cs_pin,
+                      selected ? GPIO_PIN_RESET : GPIO_PIN_SET);
     return true;
 }
 
 bool spi_begin(const spi_device_t *device, TickType_t wait_ticks)
 {
-    if (!acquire_bus(device, wait_ticks)) {
-        return false;
-    }
-    HAL_GPIO_WritePin(device->cs_port, device->cs_pin, GPIO_PIN_RESET);
-    return true;
+    return acquire_bus(device, wait_ticks, true);
 }
 
 bool spi_transfer(const spi_device_t *device, const uint8_t *tx, uint8_t *rx,
@@ -101,11 +88,7 @@ void spi_end(const spi_device_t *device)
 
 bool spi_acquire(const spi_device_t *device, TickType_t wait_ticks)
 {
-    if (!acquire_bus(device, wait_ticks)) {
-        return false;
-    }
-    HAL_GPIO_WritePin(device->cs_port, device->cs_pin, GPIO_PIN_SET);
-    return true;
+    return acquire_bus(device, wait_ticks, false);
 }
 
 bool spi_select(const spi_device_t *device, bool selected)
