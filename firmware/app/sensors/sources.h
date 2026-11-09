@@ -10,8 +10,8 @@
  * Allocate a new ID if a payload format changes incompatibly.
  */
 typedef enum {
-    /** Source ID reserved for IMU samples. */
-    LOG_SOURCE_IMU = 1
+    LOG_SOURCE_IMU = 1,
+    LOG_SOURCE_GPS = 2
 } sensor_source_t;
 
 #endif

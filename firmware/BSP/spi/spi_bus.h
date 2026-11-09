@@ -24,8 +24,10 @@ typedef struct spi_device spi_device_t;
  */
 typedef struct {
     SPI_HandleTypeDef *handle;
+
     StaticSemaphore_t mutex_storage;
     SemaphoreHandle_t mutex;
+
     /** Device holding the current transaction. */
     const spi_device_t *active_device;
 } spi_bus_t;

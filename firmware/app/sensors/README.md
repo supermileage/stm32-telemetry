@@ -1,25 +1,46 @@
-# Sensor records
+# Sensor Records
 
-Sensor tasks collect samples, encode their payloads, and send records to the
-logger. The logger handles the queue and file writes without interpreting the
-sensor data.
+Sensor tasks collect data, encode it into a payload, and send it to the logger. The logger handles queuing and writing records to the SD card without needing to understand the sensor data.
 
-Source IDs are defined in `sources.h`, with `LOG_SOURCE_IMU` (1) reserved for IMU
-data. Keep IDs stable for decoders; an incompatible payload change needs a new ID.
+## Source IDs
 
-To log a sample, zero-initialize a `log_record_t` and fill in its timestamp in
-milliseconds since boot, source ID, and encoded payload. Set `length` to the
-number of payload bytes, up to `LOG_PAYLOAD_MAX`, then call `logger_submit()`
-from the acquisition task.
+Each sensor type has a source ID defined in `sources.h`.
 
-The queue copies the record, so the task can reuse it immediately. A false
-return means the logger is unavailable, the queue is full, or the record is
-invalid.
+For example, `LOG_SOURCE_IMU` (1) identifies IMU data.
 
-Keep sample types and encoders in the sensor module. Document each payload's
-units, byte order, and field sizes before using it in logs. Do not write native
-C structs directly: padding and enum sizes are not a stable file format.
+Keep source IDs consistent so logged data can be decoded correctly. If a sensor's payload format changes in a way that breaks compatibility, assign it a new source ID.
 
-See [storage and logging](../storage/storage_logging.md) for startup, ISR
-submission, status, and shutdown, and the [binary format](../logging/logging_format.md)
-for framing and CRC details.
+## Logging Sensor Data
+
+To log a sensor sample:
+
+1. Create a `log_record_t` and initialize it to zero.
+2. Set its timestamp in milliseconds since boot.
+3. Set the sensor's source ID.
+4. Encode the sensor data into the payload.
+5. Set `length` to the number of payload bytes.
+6. Call `logger_submit()` to send the record to the logger.
+
+The payload must not exceed `LOG_PAYLOAD_MAX` bytes.
+
+The logger queue copies the record, so the sensor task can safely reuse its record after submission.
+
+`logger_submit()` returns `false` if the logger is unavailable, the queue is full, or the record is invalid.
+
+## Payload Format
+
+Each sensor module is responsible for defining its sample data and encoding it into a payload.
+
+When defining a payload, document:
+
+- **Units:** Such as m/s², °C, or degrees/s.
+- **Byte order:** How multi-byte values are stored.
+- **Field sizes:** How many bytes each value uses.
+- **Field order:** The order values appear in the payload.
+
+Do not write C structs directly into the payload. Struct padding and data type sizes can vary, making the logs harder to decode reliably.
+
+## Related Documentation
+
+- [Storage and Logging](../storage/storage_logging.md) — Logger startup, queue handling, ISR submission, status, and shutdown.
+- [Binary Log Format](../logging/logging_format.md) — Record structure, framing, and CRC validation.

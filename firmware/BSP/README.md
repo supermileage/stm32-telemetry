@@ -1,87 +1,110 @@
 # Board Support Package (BSP)
 
-The BSP connects the application to the **B-U585I-IOT02A** board using STM32 HAL and FreeRTOS.
+The Board Support Package (BSP) connects the application to the **B-U585I-IOT02A** board using STM32 HAL and FreeRTOS.
 
-It provides hardware interfaces for peripherals such as SPI, UART, and the SD card, keeping board-specific code separate from the application.
+It handles communication with hardware peripherals such as SPI, UART, and the SD card. This keeps hardware-specific code separate from the application and provides a consistent way to access peripherals.
 
-## Structure
+## Project Structure
 
 | Path | Purpose |
 |---|---|
 | `spi/` | SPI communication and bus management |
-| `uart/uart_port.h`, `.c` | C UART state, interrupt RX and serialized TX |
-| `storage/sd_spi_port.hpp`, `.cpp` | SD card SPI setup and bus access |
+| `uart/uart_port.h`, `.c` | UART communication, interrupt-based RX, and synchronized TX |
+| `storage/sd_spi_port.hpp`, `.cpp` | SD card SPI communication |
 | `storage/sd_diskio.h`, `.cpp` | Connects the SD card driver to FatFs |
-| `storage/sd_card.h` | C interface for SD card setup |
+| `storage/sd_card.h` | C interface for SD card initialization |
 
-## Peripheral Access
+## Using the BSP
 
-Peripheral drivers handle hardware communication and synchronization using STM32 HAL and FreeRTOS.
+The BSP uses **STM32 HAL** for hardware communication and **FreeRTOS** for synchronization between tasks.
 
-For SPI, `spi_bus.c` provides transfers and mutex-based bus locking. Devices sharing a bus use separate chip-select pins, and transactions must be completed before releasing the bus.
+Peripheral settings such as GPIO pins, clock speeds, and operating modes are configured in STM32CubeMX.
 
-SPI operations must run from FreeRTOS tasks, not interrupts. Avoid direct HAL SPI transfers on a bus managed by the BSP.
+### Initialization
 
-Peripheral settings such as clock speed, pin assignments, and operating modes are configured in STM32CubeMX.
+The normal startup order is:
 
-## C peripheral driver contracts
+1. **CubeMX** initializes clocks, GPIO, and peripheral handles.
+2. **FreeRTOS kernel setup** runs.
+3. **`app_init()`** initializes BSP peripherals before the scheduler starts.
+4. **FreeRTOS tasks** start using the peripherals.
 
-CubeMX, HAL, FreeRTOS and peripheral drivers use C. Application tasks and protocol
-processing may use C++ and include these headers directly through their
-`extern "C"` declarations. No C++ wrapper is needed. The existing SD/FatFs C++
-adapters are unchanged by this SPI/UART refactor.
+SPI can also be initialized from a task before its first use. For example, the logger task initializes the SD card's SPI bus when setting up storage.
 
-Give each `spi_bus_t` and `uart_port_t` static/boot lifetime and zero-initialize it
-(for example, `static uart_port_t sensor_uart;`). Never copy an initialized object
-or modify its fields: HAL and FreeRTOS retain pointers into it. All users of a
-peripheral must share its one BSP object and avoid direct HAL access.
+Each peripheral should have one shared BSP object with a lifetime that lasts for the entire application.
 
-The normal initialization order is:
+```c
+static uart_port_t sensor_uart;
+```
 
-1. CubeMX initializes GPIO, clocks and peripheral handles.
-2. Kernel setup runs, then `app_init()` initializes BSP objects serially before
-   the scheduler starts. UART init creates its static stream/mutex and publishes
-   callback ownership; it does not enable reception.
-3. Tasks are created and the scheduler starts.
-4. The single UART reader task calls `uart_port_start_rx()`, then reads buffered
-   bytes. TX tasks call `uart_port_write()`.
+Keep these objects static, initialize them only once, and don't copy or modify them directly after initialization.
 
-SPI also permits initialization from a task before first use. The existing SD
-adapter uses this path from its sole logger task; retaining it preserves SD
-startup behavior. Do not initialize that bus concurrently from another task.
-There is no shutdown/rebinding lifecycle. Repeating init with the same handle
-succeeds without recreating resources; binding a different handle fails.
+BSP peripheral drivers are written in C, but they can be used directly from C++ tasks. Their headers already support `extern "C"`, so no additional wrapper is needed.
 
-### SPI ownership and cleanup
+**Important rules:**
+- Use the BSP functions instead of calling HAL directly on a peripheral managed by the BSP.
+- Don't call task-only BSP functions from interrupts.
+- Don't initialize the same peripheral concurrently from multiple tasks.
+- Initialize each peripheral with its intended HAL handle. Reinitializing with the same handle is safe, but switching handles is not supported.
 
-`spi_begin()` takes the static mutex and asserts CS low. `spi_transfer()` passes
-its millisecond timeout directly to HAL and leaves CS/ownership intact on both
-success and failure. Every successful begin **must** be paired with `spi_end()`
-from the same task and with the same device, including on error paths:
+## SPI Communication
+
+The SPI driver in `spi/` manages data transfers and access to shared SPI buses.
+
+Multiple SPI devices can share a bus as long as each has its own chip-select (CS) pin.
+
+### SPI Transactions
+
+Use three functions for normal SPI communication:
+
+1. `spi_begin()` — Locks the bus and pulls the device's CS pin low.
+2. `spi_transfer()` — Sends and receives data.
+3. `spi_end()` — Raises CS and releases the bus.
+
+Example:
 
 ```c
 if (spi_begin(&device, pdMS_TO_TICKS(20))) {
     bool ok = spi_transfer(&device, tx, rx, sizeof(tx), 50U);
-    spi_end(&device); /* Always raise CS and release the mutex. */
-    /* Handle ok here. */
-    (void)ok;
+
+    // Always release the bus, even if the transfer fails.
+    spi_end(&device);
+
+    if (!ok) {
+        // Handle transfer error.
+    }
 }
 ```
 
-The mutex owner prevents other tasks from accessing the bus. `active_device`
-also prevents the owning task from selecting or ending a different device on
-that bus. Nested acquisition fails before taking the non-recursive mutex,
-avoiding a wait on the calling task's own lock. `spi_end()` raises CS before
-clearing ownership and giving the mutex; it works even after a HAL error.
+**Always call `spi_end()` after a successful `spi_begin()`, even when a transfer fails.**
 
-`spi_acquire()` and `spi_select()` remain necessary for the SD adapter: it must
-clock with CS high before commands and after deselection while keeping the mutex.
-Other devices normally need only begin/transfer/end. SPI hardware format is
-asserted once at init; mode and clock remain at their CubeMX settings.
+The SPI driver uses a FreeRTOS mutex to prevent tasks from accessing the same bus at the same time. A transaction must begin and end in the same task, using the same device.
 
-### UART use and timing
+The timeout values have different units:
+- `spi_begin()` uses FreeRTOS ticks for waiting on the mutex.
+- `spi_transfer()` uses milliseconds for the HAL transfer timeout.
 
-There are no UART application callers yet. A C++ task can use the C BSP directly:
+Use `pdMS_TO_TICKS()` when converting milliseconds to FreeRTOS ticks.
+
+### Shared Bus Access
+
+The SD card driver also uses `spi_acquire()` and `spi_select()`.
+
+Unlike a normal SPI transaction, an SD card sometimes needs extra clock cycles while CS is high. These functions allow the driver to keep the bus locked while controlling CS separately.
+
+Other SPI devices should normally use `spi_begin()`, `spi_transfer()`, and `spi_end()`.
+
+SPI settings, including clock speed and mode, come from STM32CubeMX. The BSP does not change them during transactions.
+
+## UART Communication
+
+The UART driver in `uart/` provides interrupt-based reception (RX) and blocking transmission (TX).
+
+It supports **USART1, USART3, and UART4**, with one BSP object per peripheral.
+
+### Initialization
+
+Initialize the UART port after CubeMX and kernel setup, before starting the scheduler.
 
 ```cpp
 #include "uart/uart_port.h"
@@ -89,117 +112,88 @@ There are no UART application callers yet. A C++ task can use the C BSP directly
 
 static uart_port_t sensor_uart;
 
-// In app_init(), after CubeMX/kernel setup and before the scheduler:
-// if (!uart_port_init(&sensor_uart, &huart3)) { /* handle startup failure */ }
+// Inside app_init():
+bool ok = uart_port_init(&sensor_uart, &huart3);
 
-// In the single reader task, after the scheduler starts:
-// if (!uart_port_start_rx(&sensor_uart)) { /* inspect status / retry */ }
-// uint8_t bytes[32];
-// size_t count = uart_port_read(&sensor_uart, bytes, sizeof(bytes), pdMS_TO_TICKS(20));
-```
-
-One port owns each of `huart1`, `huart3` and `huart4` through a fixed callback
-table. Duplicate claims fail during init. Unsupported/unclaimed handles are
-ignored by the RX/error callbacks; TX and other peripheral callbacks are untouched.
-The build requires `USE_HAL_UART_REGISTER_CALLBACKS == 0U`.
-
-Init requires idle 8-bit/no-parity UARTs with FIFO disabled, matching the current
-CubeMX settings and the reviewed single-byte HAL path. RX-only/TX-only modes
-remain usable for their respective operations. The RX stream holds **256 bytes**;
-its 257-byte backing array includes FreeRTOS's reserved ring slot. On the current
-Cortex-M33 build, each `uart_port_t` occupies 404 bytes of static RAM; the shared
-three-entry callback table adds 36 bytes. There is one
-ISR writer and one task reader, as required by stream buffers. Full buffers drop
-new bytes, increment `dropped_bytes` and keep reception armed. Reads can return
-short chunks and do not identify protocol message boundaries.
-
-TX uses blocking `HAL_UART_Transmit()` under its own static mutex. `timeout_ms`
-is one shared budget: mutex waiting consumes part of the time and HAL receives
-the remainder. If a nonzero budget expires during acquisition, no transmission
-starts. Zero polls; `HAL_MAX_DELAY` waits indefinitely. Unsigned subtraction
-handles a HAL tick wrap. Tick granularity and scheduling can delay the return;
-this is not a hard real-time deadline. HAL failure may follow partial output,
-so blind retries can duplicate bytes. Every acquired TX mutex is released.
-
-The project uses a 1 kHz RTOS tick and 32-bit `TickType_t`, so milliseconds map
-directly to ticks without multiplication overflow. A compile-time check requires
-reviewing this conversion if either setting changes. Runtime APIs reject ISR,
-pre-scheduler and suspended-scheduler calls before using task-only FreeRTOS APIs.
-Call with interrupts enabled, outside critical sections.
-
-### UART interrupts and error recovery
-
-The source review used bundled **STM32U5 HAL 1.6.3** and **FreeRTOS 11.2.0**:
-
-- `UART_RxISR_8BIT()` reads `RDR`, disables RX interrupts and sets `RxState` ready
-  before invoking completion. Normal completion can safely call `Receive_IT()`.
-- `HAL_UART_IRQHandler()` reads error flags from `ISR`, clears them through `ICR`,
-  records `ErrorCode`, and can invoke RX completion **before** the error callback.
-  Completion must leave `ErrorCode` intact and discard the suspect byte. Rearming
-  clears `ErrorCode`; doing it early can hide overrun and break HAL recovery.
-- Overrun/receiver-timeout ends RX before the error callback; rearm when HAL is
-  ready. Noise/framing without a completed byte may leave RX busy; keep that
-  transfer running. Failed rearming sets `active` false so the reader can retry.
-- Completion uses `xStreamBufferSendFromISR()` and passes the accumulated wake
-  flag to `portYIELD_FROM_ISR()`. Counters wrap modulo 2^32. A hardware error and
-  its failed recovery count as one event; a standalone failed arm also counts.
-
-`uart_port_start_rx()` checks NVIC enable/priority before its short critical
-section. That section masks the UART IRQ while `Receive_IT()` arms hardware and
-publishes `rx_active`; the HAL call does not wait. Status snapshots use another
-short critical section to read all counters consistently. No blocking operation
-runs in either section. `volatile` makes ISR updates visible; interrupt masking
-provides synchronization.
-
-For the key RX lines in `uart_port.c`:
-
-```c
-BaseType_t woken = pdFALSE;
-if (xStreamBufferSendFromISR(port->rx_stream, &port->rx_byte, 1U, &woken) != 1U) {
-    ++port->rx_dropped_bytes;
+if (!ok) {
+    // Handle initialization failure.
 }
-port->rx_active = HAL_UART_Receive_IT(handle, &port->rx_byte, 1U) == HAL_OK;
-portYIELD_FROM_ISR(woken);
 ```
 
-`woken` starts false so an ISR requests a context switch only when FreeRTOS
-unblocks a higher-priority task. The send copies one byte into the stream; a
-short send means the ring is full, so the counter records that loss. The HAL
-call reuses the port's single-byte storage for the next interrupt and publishes
-whether arming succeeded (the implementation also counts a failed arm).
-The final line requests the task switch on ISR exit. This is interrupt RX, not
-DMA: every received byte runs this path, so measure interrupt load on the board.
+Initialization prepares the UART driver and its FreeRTOS resources, but does not start receiving data.
 
-Current generated code enables **USART3 at priority 5**, with priority grouping 4
-(all four implemented bits used for preemption). This meets
-`configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY == 5`: numerically smaller values
-are more urgent and cannot call FreeRTOS. UART1/UART4 IRQs are currently disabled;
-their TX works, but starting RX fails until CubeMX enables their IRQs and handlers
-at a safe priority. Keep priorities/grouping fixed after startup. No hardware
-configuration or generated code was changed.
+### Receiving Data
 
-### Verification and learning exercises
+UART reception uses interrupts to collect incoming bytes in a **256-byte buffer**.
 
-See [BSP host checks](../../tests/bsp/README.md) for repeatable ownership,
-overflow, recovery and timeout regressions. Host mocks do not measure interrupt
-latency or prove electrical behavior; verify those on the board:
+Start reception from the task responsible for reading UART data, after the scheduler has started.
 
-1. Inspect CS/SCK with a logic analyzer while forcing a transfer timeout. Confirm
-   the caller still calls `spi_end()` and the next task can acquire the bus.
-2. Pause UART consumption, send more than 256 bytes, then inspect
-   `uart_port_rx_status()`. Resume reading and confirm RX continues. At the
-   configured baud rate, measure worst-case interrupt load and check for overrun.
-3. Use a debugger to watch `RxState`, `ErrorCode`, `rx_active` and `rx_errors`
-   through overrun recovery. Breakpoints can themselves cause overruns because
-   the sender keeps transmitting. Prefer counters, trace or a logic analyzer for
-   timing investigations. Compare task stack high-water marks under load.
+```cpp
+if (!uart_port_start_rx(&sensor_uart)) {
+    // Handle RX startup failure.
+}
 
-Check your understanding: why must the SD adapter keep the mutex while CS is
-high, and why must RX completion defer rearming when `ErrorCode` is nonzero?
+uint8_t buffer[32];
+
+size_t count = uart_port_read(
+    &sensor_uart,
+    buffer,
+    sizeof(buffer),
+    pdMS_TO_TICKS(20)
+);
+```
+
+The driver automatically re-arms UART reception after each received byte and handles UART error recovery.
+
+Keep the following in mind:
+
+- Only **one task should read** from a UART port.
+- Reads can return fewer bytes than requested.
+- The driver provides raw bytes, not complete protocol messages.
+- If the receive buffer fills up, new bytes are dropped rather than overwriting existing data.
+- Use `uart_port_rx_status()` to check dropped bytes and receive errors.
+- If reception becomes inactive, the reader task can call `uart_port_start_rx()` again.
+
+UART RX must have its interrupt enabled in STM32CubeMX, including its IRQ handler.
+
+Because the interrupt uses FreeRTOS functions, its priority must be FreeRTOS-safe. With the current configuration, use **priority 5 or a numerically higher value**, with priority grouping 4.
+
+The driver expects an 8-bit, no-parity UART with FIFO disabled. These settings are configured in CubeMX.
+
+The build also requires `USE_HAL_UART_REGISTER_CALLBACKS == 0U`.
+
+### Sending Data
+
+Use `uart_port_write()` to send data.
+
+```cpp
+bool sent = uart_port_write(
+    &sensor_uart,
+    buffer,
+    count,
+    pdMS_TO_TICKS(20),
+    50U
+);
+```
+
+The UART driver uses a separate FreeRTOS mutex to prevent multiple tasks from transmitting at the same time.
+
+There are two timeouts:
+
+- `wait_ticks` — How long to wait for access to the UART transmitter.
+- `timeout_ms` — How long HAL can spend transmitting after access is granted.
+
+In the example, the task waits up to 20 ms for the mutex, then allows up to 50 ms for transmission.
+
+A failed transmission may still have sent some bytes. Avoid blindly retrying if doing so could duplicate data.
+
+UART read, write, and reception-start functions must be called from running FreeRTOS tasks, not from interrupts or critical sections.
 
 ## SD Card
 
-The SD card uses **SPI1** with the following connections:
+The SD card uses **SPI1** to communicate with the STM32.
+
+### Wiring
 
 | Signal | STM32 Pin |
 |---|---|
@@ -208,14 +202,46 @@ The SD card uses **SPI1** with the following connections:
 | MOSI | PG4 |
 | CS | PE12 |
 
-Use 3.3 V logic, a common ground, and a FAT32-formatted SD card.
+The SD card requires:
+- 3.3 V logic
+- A common ground with the STM32
+- A FAT32-formatted SD card
 
-The logger task initializes and mounts the card through `storage_mount()`. The BSP handles SPI setup, SD driver callbacks, and FatFs disk registration.
+SPI1 is configured to run at **250 kHz** and is dedicated to the SD card.
 
-SPI1 is configured at 250 kHz and is dedicated to the SD card.
+### Storage Access
 
-**Only the logger task should access the SD card.** Sensor tasks send records through the logger instead of writing files directly.
+The logger task initializes and mounts the SD card using `storage_mount()`.
 
-SD protocol handling lives in `lib/sd_spi`, storage setup in `app/storage/`, and file writing in `app/logging/`.
+The BSP handles SPI communication and connects the SD card driver to FatFs.
 
-See the [library guide](../../lib/README.md) for the required SD driver sources.
+**Only the logger task should access the SD card.**
+
+Other tasks, such as sensor tasks, should send their data to the logger rather than accessing files directly. This keeps file operations in one place and avoids concurrent storage access.
+
+The SD card implementation is split into:
+
+| Location | Responsibility |
+|---|---|
+| `lib/sd_spi/` | SD card SPI protocol |
+| `app/storage/` | Storage initialization and mounting |
+| `app/logging/` | Writing log data to files |
+
+See the [library guide](../../lib/README.md) for SD card driver dependencies.
+
+## Testing and Debugging
+
+The BSP includes host-side tests for SPI ownership, UART buffering, error recovery, and timeouts.
+
+See [BSP host checks](../../tests/bsp/README.md) for instructions.
+
+Host tests verify driver behavior, but hardware timing and electrical communication still need to be checked on the board.
+
+When testing on hardware:
+
+1. **SPI:** Verify chip-select behavior and confirm the bus is released after a transfer error.
+2. **UART RX:** Send more than 256 bytes without reading and check the dropped-byte counter. Confirm reception continues afterward.
+3. **UART errors:** Check that reception recovers from overrun and other UART errors.
+4. **FreeRTOS:** Check interrupt load and task stack usage under normal and heavy traffic.
+
+A logic analyzer is useful for checking SPI signals and UART timing. Debugger breakpoints can interfere with interrupt-driven reception, so prefer counters or trace tools when investigating timing issues.
