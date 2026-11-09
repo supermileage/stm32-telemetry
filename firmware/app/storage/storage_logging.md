@@ -1,81 +1,76 @@
 # SD Storage and Logging
 
-The storage task handles writing sensor data to the SD card using FatFs and SPI1. Sensor tasks send their data to a queue, and the storage task takes care of saving it.
+The logger task handles writing sensor data to the SD card using FatFs and SPI1. Sensor tasks send records through a queue instead of accessing the SD card directly.
 
-This keeps SD card operations separate from sensor collection.
+## Starting the Logger
 
-## Starting the storage task
+`app_init()` calls `logger_start_task()` to create the logger task and queue. Once the scheduler starts, the logger mounts the SD card and opens a binary log file.
 
-There are two ways to start storage:
+The logger uses statically allocated memory:
 
-| Function | What it does |
-|---|---|
-| `storage_start_task()` | Mounts the SD card and opens the binary log; no file self-test |
-| `storage_start_hello_test()` | Tests reading and writing a text file without starting the logger |
-
-By default, `app_init()` calls `storage_start_task()`.
-
-To test only the SD card, replace it with `storage_start_hello_test()`.
-
-Only one mode can run per boot. Reboot the board to restart storage after it stops or fails.
-
-The storage task uses:
-
-- A queue that holds up to 64 commands
+- A queue for 64 commands (4,864 bytes on the current ARM build)
 - A 4 KiB task stack
 - A 4 KiB write buffer
 
-Log files are named `LOGxxxxx.BIN`, starting with the first available number. A new file is created before the current one exceeds 64 MiB. Existing logs are never overwritten.
+The task, queue, and status are managed in `logging/logger.c`. **Only the logger task accesses the filesystem.**
 
-## Checking the SD card
+Storage has two jobs: `storage_mount()` prepares the card and mounts drive `0:/`; `storage_unmount()` detaches FatFs and unlinks the SD driver. The logger handles records, buffering, syncing, and closing the log file. There is no separate storage task.
 
-Make sure the SD card is formatted as FAT32 and connected correctly.
+Log files are named `LOGxxxxx.BIN`. The logger uses the first available filename and creates a new file before reaching 64 MiB. Existing files are never overwritten.
 
-Normal startup mounts the card and opens the binary log. The storage task owns
-SD interface configuration through `storage_mount()`; `app_init()` only creates
-the task. Only diagnostic mode creates and reads back a text file.
+Calling `logger_start_task()` again has no effect, even after failure or shutdown.
 
-You can check the results in the STM32CubeIDE debugger:
+## Checking the SD Card
 
-| Variable | Expected value |
+Make sure the SD card is formatted as FAT32 and connected correctly. The logger configures and mounts the card using `storage_mount()`.
+
+Mounting happens in this order:
+
+1. `sd_card_configure()` checks the existing SPI setup and binds the SD driver callbacks.
+2. `sd_diskio_register()` connects the driver to FatFs as drive `0:/`.
+3. `f_mount(..., 1U)` initializes the card and reads the filesystem immediately.
+
+Calling `storage_mount()` again while mounted returns `FR_OK` without repeating setup. If mounting fails, storage attempts to detach FatFs and unlink the driver. It keeps track of any unfinished cleanup so the logger can attempt it again before entering `LOGGER_FAILED`. The original mount error is preserved.
+
+Use `logger_get_status()` to check startup progress and errors. You can also inspect the private `status` variable in `logger.c` using the STM32CubeIDE debugger.
+
+| Field | Expected value |
 |---|---|
-| `storage_bringup_state` | `STORAGE_READY` or `STORAGE_TEST_PASSED` in test mode |
-| `storage_mount_result` | `FR_OK` (0) |
-| `storage_verify_result` | `FR_NOT_READY` in normal mode; `FR_OK` (0) after a successful diagnostic check |
-| `storage_unmount_result` | `FR_OK` after shutdown |
-| `storage_test_path` | Empty in normal mode; `0:/HELLO000.TXT` or the next available filename in diagnostic mode |
+| `state` | `LOGGER_READY` when the log is open |
+| `filesystem_error` | `FR_OK` (0) if no error occurred |
+| `path` | Current log filename |
 
-If mounting or verification fails, check the SD card formatting, wiring, and SPI configuration.
+If startup fails, check the SD card formatting, wiring, and SPI configuration. You can also inspect `result` after `storage_mount()` or `log_file_open()` in `logger_task()`.
 
-## Logging sensor data
+## Logging Sensor Data
 
 Sensor tasks submit records using `logger_submit()`.
 
 Each record contains:
 
-- **Timestamp:** Time in milliseconds since boot
+- **Timestamp:** Milliseconds since boot
 - **Source ID:** Identifies the sensor or data format
 - **Length:** Number of payload bytes
-- **Payload:** Up to 64 bytes of sensor data
+- **Payload:** Up to 64 bytes of encoded sensor data
 
-Zero-initialize a `log_record_t`, fill its timestamp, source, length, and encoded
-payload, then call `logger_submit(&record)`. Define sample types and payload
-encoders in the sensor module, and register source IDs in `sensors/sources.h`.
-The [sensor guide](../sensors/README.md) describes how to prepare and submit
-records. The logger stores payloads without interpreting them.
+Zero-initialize a `log_record_t`, fill its fields, and submit it using `logger_submit(&record)`.
 
-The queue copies the record, so the sensor task can reuse its memory immediately.
+Define sample types and payload encoders in the sensor module, and source IDs in `sensors/sources.h`. See the [sensor guide](../sensors/README.md) for details.
+
+The logger stores payloads without interpreting them. The queue copies each record, so sensor tasks can reuse their memory immediately.
 
 `logger_submit()` returns:
 
-- `true` if the record was added to the queue
+- `true` if the record was queued
 - `false` if the logger is unavailable, the record is invalid, or the queue is full
 
-The function does not wait for space. If the queue is full, the new record is dropped.
+**The function does not wait for queue space.** If the queue is full, the new record is dropped.
 
-Ideally, wait until the logger reaches `LOGGER_READY` before submitting data. Records queued during startup can be lost if SD card initialization fails.
+Wait until `LOGGER_READY` before submitting records when possible. Records queued during startup may be lost if initialization fails.
 
-If submitting data from an interrupt, use `logger_submit_from_isr()` instead:
+### Logging from Interrupts
+
+Use `logger_submit_from_isr()` when submitting records from an interrupt:
 
 ```c
 BaseType_t woken = pdFALSE;
@@ -85,56 +80,71 @@ bool accepted = logger_submit_from_isr(&record, &woken);
 portYIELD_FROM_ISR(woken);
 ```
 
-The interrupt must use a FreeRTOS-safe priority (currently numerical priority 5 or greater).
+The interrupt priority must satisfy `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY` in `FreeRTOSConfig.h`. The interrupt only queues the record; all SD operations run in the logger task.
 
-Storage and logger headers can be included directly from C or C++.
+Storage and logger headers work with both C and C++.
 
-## Saving data and shutting down
+## Saving Data and Shutting Down
 
-The logger buffers data and syncs it to the SD card approximately once per second. Actual timing depends on SD card performance and task scheduling.
+The logger buffers writes and syncs data to the SD card approximately once per second. Actual timing depends on SD card performance and task scheduling.
 
-You can also request a sync using `logger_request_flush()`.
+Use `logger_request_flush()` to request an additional sync. A `true` return means the request was queued; check `synced_records` for completion. Retry later if the queue is full.
 
-To confirm that submitted records have been saved, check `synced_records` against the earlier `accepted_records` count. Keep in mind that these counters can wrap around.
+To check whether submitted records have been saved, compare `synced_records` with an earlier `accepted_records` count. Both counters can wrap around.
 
-### Stopping the logger
+### Stopping the Logger
 
-Before removing the SD card or powering off the board:
+Before removing the SD card or powering off:
 
-1. Stop sending new sensor records.
-2. Call `logger_request_stop()`. If the queue is full, retry later.
-3. Wait until the logger reaches `LOGGER_STOPPED`.
+1. Stop submitting sensor records.
+2. Call `logger_request_stop()`. Retry later if the queue is full.
+3. Wait until the state reaches `LOGGER_STOPPED`.
 
-When stopping, the logger finishes processing queued records, closes the log file, and unmounts the SD card.
+The logger finishes queued records, closes the log file, and unmounts the SD card.
 
-If something goes wrong during startup, writing, or shutdown, the logger enters `LOGGER_FAILED`.
+The order matters: `log_file_close()` writes the remaining RAM buffer and closes the file before `storage_unmount()` detaches the filesystem. Calling `storage_unmount()` directly from a sensor task would bypass this shutdown sequence.
 
-The storage task remains idle after stopping. Reboot the board to start it again.
+If startup, writing, or cleanup fails, the logger enters `LOGGER_FAILED`.
 
-## Monitoring the logger
+After cleanup, the task suspends without periodic wakeups. **Reboot the board to restart logging.**
 
-Use `logger_get_status()` from a task to check the logger's state and performance.
+## Monitoring the Logger
+
+Use `logger_get_status()` from a task to check logger state and performance.
 
 | Field | Meaning |
 |---|---|
-| `accepted_records` | Records successfully added to the queue |
+| `accepted_records` | Records added to the queue |
 | `processed_records` | Records passed to the file writer |
-| `synced_records` | Records covered by a successful SD card sync or file close |
+| `synced_records` | Records saved by a successful sync or file close |
 | `dropped_records` | Valid records rejected because they could not be queued |
 
-The status also includes the logger state, queue usage, invalid submissions, FatFs errors, and current log filename.
+`queued_commands` includes pending records, flush requests, and stop requests. It does not include a command the logger is already processing. `invalid_records` counts invalid records or ISR wake pointers.
+
+`dropped_records` counts valid records rejected at submission. Records accepted before an I/O failure are not added to it; compare `accepted_records` with `synced_records` to see how far saving progressed. `filesystem_error` reports the first startup, I/O, or shutdown error, and `path` contains the last published log filename.
 
 All record counters are 32-bit and can wrap around.
 
-**Note:** A successful sync reduces the risk of data loss but cannot guarantee that data will survive sudden power loss or filesystem corruption.
+**Note:** A successful sync reduces the risk of data loss but does not guarantee protection against sudden power loss or filesystem corruption.
 
 ## Troubleshooting
 
 | Error | What to check |
 |---|---|
-| `FR_NOT_READY` | SD card connection, SPI configuration, and power |
-| `FR_NO_FILESYSTEM` | SD card formatting; exFAT is not supported |
-| `FR_DISK_ERR` | SPI transfers, wiring, and SD driver errors |
+| `FR_NOT_READY` | SD card connection, power, and SPI setup |
+| `FR_NOT_ENABLED` | SD driver registration; drive 0 must be available |
+| `FR_NO_FILESYSTEM` | FAT32 formatting; exFAT is not supported |
+| `FR_DISK_ERR` | SPI transfers, wiring, and SD driver |
+| `FR_INT_ERR` during unmount | FatFs detach or SD driver unlinking failed |
 | `LOGGER_FAILED` | Logger status and FatFs error codes |
 
-If the card becomes full or a write fails, logging stops. Fix the problem and reboot the board.
+If the card fills up or a write fails, logging stops. Fix the issue and reboot the board.
+
+For a mount failure, step through `storage_mount()` and check which of the three setup calls failed. In `storage.c`, `registered` means the driver is linked to FatFs; `mounted` means mounting completed successfully. A failed mount can leave `registered` true until cleanup succeeds.
+
+## Testing on Hardware
+
+- **Queue:** Check queue usage and `dropped_records` at the highest sensor rate, including SD initialization, sync, and file rotation delays.
+- **Stack:** Use `uxTaskGetStackHighWaterMark()` to measure stack headroom during startup, continuous logging, and failure cleanup.
+- **Sync:** Submit records continuously and verify that `synced_records` increases even when the queue is busy. Sync timing is not a hard deadline.
+- **Shutdown:** Fill the queue and request a stop. A rejected request must allow logging to continue. An accepted request must finish earlier records and reject new ones.

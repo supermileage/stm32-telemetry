@@ -5,7 +5,7 @@
  * @file
  * @brief Internal SD port interface used by the FatFs adapter.
  *
- * The storage task owns all calls. Configure through sd_card_configure() before
+ * The logger task owns all calls. Configure through sd_card_configure() before
  * use; keep each library operation between acquire and release, even on failure.
  */
 

@@ -15,7 +15,7 @@ extern "C" {
 /**
  * @brief Bind the SD driver to SPI1 and PE12.
  *
- * Call from the storage task with files closed and the card unmounted.
+ * Call from the logger task with files closed and the card unmounted.
  * CubeMX must configure mode 0 and a fixed clock of 400 kHz or lower.
  * This checks the configuration and binds callbacks; FatFs initializes the card.
  * @return true if bound; false on failure, clearing the old binding unless an

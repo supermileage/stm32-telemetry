@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Create the storage task and logger queue.
+ * @brief Create the logger task and command queue.
  * Call after peripheral and kernel setup, before starting the scheduler.
  */
 void app_init(void);

@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Buffered binary log writer, used only by the storage task.
+ * @brief Buffered binary log writer, used only by the logger task.
  */
 #ifndef LOG_FILE_H
 #define LOG_FILE_H
@@ -22,7 +22,7 @@ extern "C" {
 #define LOG_PATH_SIZE 17U
 
 /**
- * Writer state owned by the storage task; no internal locking is provided.
+ * Writer state owned by the logger task; no internal locking is provided.
  * Keep it in static storage because the buffer is too large for the task stack.
  * Zero-initialize before the first open and leave the fields to the writer.
  */
@@ -57,7 +57,7 @@ FRESULT log_file_open(log_file_t *log);
 /**
  * @brief Buffer a framed record, rotating at LOG_ROTATE_BYTES.
  * Success does not mean synced. Do not retry failed appends; writes may be partial.
- * @param[in,out] log Open writer owned by the storage task.
+ * @param[in,out] log Open writer owned by the logger task.
  * @param record Sample with length at most LOG_PAYLOAD_MAX.
  * @return FR_OK if buffered, otherwise a parameter, state, or I/O error.
  */
@@ -65,7 +65,7 @@ FRESULT log_file_append(log_file_t *log, const log_record_t *record);
 
 /**
  * @brief Write the buffer and sync file data and metadata.
- * @param[in,out] log Open writer owned by the storage task.
+ * @param[in,out] log Open writer owned by the logger task.
  * @return FR_OK on success, otherwise a parameter, state, or I/O error.
  */
 FRESULT log_file_sync(log_file_t *log);

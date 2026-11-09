@@ -1,7 +1,7 @@
 #include "app.h"
-#include "storage/storage_task.h"
+#include "logging/logger.h"
 
 void app_init(void)
 {
-    storage_start_task();
+    logger_start_task();
 }

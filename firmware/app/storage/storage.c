@@ -2,13 +2,14 @@
 #include "sd_diskio.h"
 #include "sd_card.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stddef.h>
 
+/* FatFs keeps this object until unmount, so it must outlive storage_mount(). */
 static FATFS filesystem;
-static FIL test_file;
 static char drive_path[4];
 static bool mounted;
+/* Keep the link until cleanup succeeds, even if mounting failed. */
 static bool registered;
 
 FRESULT storage_mount(void)
@@ -16,23 +17,24 @@ FRESULT storage_mount(void)
     if (mounted) {
         return FR_OK;
     }
+    if (registered) {
+        /* Finish a previous cleanup before configuring the card again. */
+        return FR_NOT_READY;
+    }
     if (!sd_card_configure()) {
         return FR_NOT_READY;
     }
-    if (!registered) {
-        if (!sd_diskio_register(drive_path)) {
-            return FR_NOT_ENABLED;
-        }
-        registered = true;
+    if (!sd_diskio_register(drive_path)) {
+        return FR_NOT_ENABLED;
     }
+    registered = true;
+
     FRESULT result = f_mount(&filesystem, drive_path, 1U);
     if (result == FR_OK) {
         mounted = true;
     } else {
-        /* Relink on retry so ST's dispatcher resets its cached initialization flag. */
-        (void)f_mount(NULL, drive_path, 0U);
-        (void)sd_diskio_unregister(drive_path);
-        registered = false;
+        /* Preserve the mount error. The logger also calls unmount during cleanup. */
+        (void)storage_unmount();
     }
     return result;
 }
@@ -42,6 +44,7 @@ FRESULT storage_unmount(void)
     if (!registered) {
         return FR_OK;
     }
+    /* Detach FatFs. The logger must close its file first to save data. */
     FRESULT result = f_mount(NULL, drive_path, 0U);
     if (result != FR_OK) {
         return result;
@@ -52,56 +55,4 @@ FRESULT storage_unmount(void)
     }
     registered = false;
     return FR_OK;
-}
-
-FRESULT storage_self_test(char path[STORAGE_TEST_PATH_SIZE])
-{
-    static const char message[] = "Hello World\r\n";
-    char received[sizeof(message)] = {0};
-    if (path == NULL) {
-        return FR_INVALID_PARAMETER;
-    }
-    path[0] = '\0';
-    if (!mounted) {
-        return FR_NOT_READY;
-    }
-    FRESULT result = FR_EXIST;
-    for (unsigned int number = 0U; number < 1000U; ++number) {
-        (void)snprintf(path, STORAGE_TEST_PATH_SIZE, "%sHELLO%03u.TXT", drive_path, number);
-        result = f_open(&test_file, path, FA_WRITE | FA_CREATE_NEW);
-        if (result != FR_EXIST) {
-            break;
-        }
-    }
-    if (result != FR_OK) {
-        return result;
-    }
-    UINT transferred = 0U;
-    result = f_write(&test_file, message, sizeof(message) - 1U, &transferred);
-    if (result == FR_OK && transferred != sizeof(message) - 1U) {
-        result = FR_DISK_ERR;
-    }
-    if (result == FR_OK) {
-        result = f_sync(&test_file);
-    }
-    FRESULT closed = f_close(&test_file);
-    if (result == FR_OK) {
-        result = closed;
-    }
-    if (result != FR_OK) {
-        return result;
-    }
-
-    /* Reopen to verify through FatFs; this is not a power-loss durability test. */
-    result = f_open(&test_file, path, FA_READ);
-    if (result != FR_OK) {
-        return result;
-    }
-    result = f_read(&test_file, received, sizeof(received), &transferred);
-    if (result == FR_OK && (transferred != sizeof(message) - 1U ||
-        memcmp(received, message, sizeof(message) - 1U) != 0)) {
-        result = FR_DISK_ERR;
-    }
-    closed = f_close(&test_file);
-    return result == FR_OK ? closed : result;
 }

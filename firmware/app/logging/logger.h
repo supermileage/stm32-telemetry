@@ -23,7 +23,7 @@ extern "C" {
 typedef enum {
     /** The command queue has not been created. */
     LOGGER_NOT_STARTED,
-    /** Accepting records while storage prepares the card. */
+    /** Accepting records while the logger mounts storage and opens the file. */
     LOGGER_STARTING,
     /** The log file is open and the worker is consuming commands. */
     LOGGER_READY,
@@ -62,8 +62,17 @@ typedef struct {
 } logger_status_t;
 
 /**
+ * @brief Create the logger queue and its sole filesystem owner task.
+ * Call before the scheduler and producer interrupts start. The task mounts the
+ * card and opens the log after the scheduler starts. Repeated calls do nothing,
+ * including after failure or shutdown; reboot to restart. Check logger_get_status()
+ * for startup and I/O errors.
+ */
+void logger_start_task(void);
+
+/**
  * @brief Copy a record to the queue without waiting for space.
- * Call from a task after storage starts. Accepted records can still be lost on I/O failure.
+ * Call from a task after logger_start_task(). Accepted records can still be lost on I/O failure.
  * @param record Sample with length at most LOG_PAYLOAD_MAX; reusable after this call.
  * @return true if queued; false for invalid input, a full queue, or an unavailable logger.
  */
@@ -71,7 +80,7 @@ bool logger_submit(const log_record_t *record);
 
 /**
  * @brief Queue a record from a FreeRTOS syscall-safe interrupt.
- * Storage must have started before enabling producer interrupts. The NVIC
+ * Call logger_start_task() before enabling producer interrupts. The NVIC
  * priority must satisfy configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY.
  * @param record Sample to copy, with length at most LOG_PAYLOAD_MAX.
  * @param[in,out] higher_priority_task_woken Initialize to pdFALSE; pass to portYIELD_FROM_ISR afterward.

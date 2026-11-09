@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief SD volume setup and file verification for the single storage task.
+ * @brief SD volume setup owned by the logger task.
  */
 #ifndef STORAGE_H
 #define STORAGE_H
@@ -11,34 +11,19 @@
 extern "C" {
 #endif
 
-/** Capacity of the self-test filename, including its NUL terminator. */
-#define STORAGE_TEST_PATH_SIZE 17U
-
 /**
- * @brief Configure SPI1 and mount FatFs drive 0 without formatting it.
- * Storage task only. Repeated calls return FR_OK while mounted.
- * Close files and unmount after an I/O error before retrying.
- * @return FR_OK if mounted, otherwise a setup or FatFs error.
+ * @brief Mount the SD card as FatFs drive 0 without formatting.
+ * Call after the scheduler starts.
+ * @return FR_OK on success, otherwise a setup or FatFs error.
  */
 FRESULT storage_mount(void);
 
 /**
- * @brief Unmount and unlink the card driver. Storage task only.
- * Close all files first; no other FatFs or SD calls may be running.
- * @return FR_OK if unmounted, otherwise the cleanup error.
+ * @brief Unmount the card and unregister its driver.
+ * Flush buffers and close files first. Safe to call after a failed mount.
+ * @return FR_OK on success, otherwise a cleanup error.
  */
 FRESULT storage_unmount(void);
-
-/**
- * @brief Create an unused HELLOxxx.TXT and verify its contents.
- * Storage task only, with the card mounted. Names run from 000 to 999.
- * The file remains on the card after the check, including on failure.
- * @param[out] path Non-NULL buffer of STORAGE_TEST_PATH_SIZE bytes; receives the attempted path.
- *                  Empty if no file was attempted.
- * @return FR_OK if verified, FR_EXIST if names are exhausted, FR_DISK_ERR for
- *         a short write or content mismatch, or another FatFs error.
- */
-FRESULT storage_self_test(char path[STORAGE_TEST_PATH_SIZE]);
 
 #ifdef __cplusplus
 }

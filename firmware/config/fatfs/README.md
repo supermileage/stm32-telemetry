@@ -1,14 +1,11 @@
 # FatFs configuration
 
-FatFs lets the firmware read and write files on the SD card.
+FatFs handles reading and writing files on the SD card.
 
-[`ffconf.h`](ffconf.h) contains the project settings. The FatFs source is in
-[`lib/fatfs/src`](../../../lib/fatfs/src), and
-[`bsp/storage/sd_diskio.cpp`](../../bsp/storage/sd_diskio.cpp) connects it to
-the SD card driver.
+- [`ffconf.h`](ffconf.h) contains the FatFs settings.
+- [`lib/fatfs/src`](../../../lib/fatfs/src) contains the FatFs source files.
+- [`sd_diskio.cpp`](../../bsp/storage/sd_diskio.cpp) connects FatFs to the SD card driver.
 
-Compile only the `diskio.c` file in [`lib/fatfs/src`](../../../lib/fatfs/src).
+Use `diskio.c` from `lib/fatfs/src`, not a copy from an SD driver or example. See the [library guide](../../../lib/README.md) for the full list of source files.
 
-Only the storage task should use FatFs. If another task needs to read or write
-a file, it should send a request to the storage task. `_FS_REENTRANT` is
-disabled, so FatFs cannot safely handle simultaneous access.
+**Only the logger task should call FatFs.** Since `_FS_REENTRANT` is disabled, FatFs is not safe to call from multiple tasks. Sensor tasks should send records through `logger.h` instead. Keep all new file operations in the logger task.
