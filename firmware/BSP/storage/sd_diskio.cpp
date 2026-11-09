@@ -88,7 +88,7 @@ DRESULT ioctl(BYTE drive, BYTE command, void *buffer)
     int result = SD_OK;
     switch (command) {
     case CTRL_SYNC: {
-        // Writes wait for programming; also check the card's error status.
+        // Writes wait for programming. Also check the card's error status.
         uint16_t card_status = 0U;
         result = SD_Get_Status_Card(card, &card_status);
         if (result == SD_OK && card_status != 0U) {
@@ -103,7 +103,7 @@ DRESULT ioctl(BYTE drive, BYTE command, void *buffer)
         *static_cast<WORD *>(buffer) = SD_BLOCK_SIZE;
         break;
     case GET_BLOCK_SIZE:
-        // Conservative erase-unit hint; this adapter does not expose card geometry.
+        // Use one sector as the erase-unit hint. Card geometry is not exposed.
         *static_cast<DWORD *>(buffer) = 1U;
         break;
     }

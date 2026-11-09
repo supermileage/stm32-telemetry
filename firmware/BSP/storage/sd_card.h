@@ -3,7 +3,7 @@
 
 /**
  * @file
- * @brief Board SD configuration for SPI1 with chip select on PE12.
+ * @brief SD card setup on SPI1.
  */
 
 #include <stdbool.h>
@@ -13,13 +13,10 @@ extern "C" {
 #endif
 
 /**
- * @brief Bind the SD driver to SPI1 and PE12.
- *
- * Call from the logger task with files closed and the card unmounted.
- * CubeMX must configure mode 0 and a fixed clock of 400 kHz or lower.
- * This checks the configuration and binds callbacks; FatFs initializes the card.
- * @return true if bound; false on failure, clearing the old binding unless an
- *         operation is still acquired (in which case the binding is left alone).
+ * @brief Connect the SD driver to SPI1.
+ * Logger task only, with files closed and the card unmounted.
+ * Requires mode 0 at 400 kHz or less. FatFs initializes the card later.
+ * @return true if configured.
  */
 bool sd_card_configure(void);
 

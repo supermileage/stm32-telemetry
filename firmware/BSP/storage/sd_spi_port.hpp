@@ -3,29 +3,25 @@
 
 /**
  * @file
- * @brief Internal SD port interface used by the FatFs adapter.
- *
- * The logger task owns all calls. Configure through sd_card_configure() before
- * use; keep each library operation between acquire and release, even on failure.
+ * @brief SD SPI access for the FatFs adapter.
+ * Logger task only. Configure before use and pair acquire with release.
  */
 
 /**
- * @brief Lock SPI1 for one complete SD library operation, leaving CS high.
- * @return Card handle valid until release, or nullptr if unconfigured, already
- *         acquired, called outside task context, or the 50 ms lock wait expires.
+ * @brief Lock SPI1 with CS high for one SD operation.
+ * @return Card handle valid until release, or nullptr on failure.
  */
 SD_Card *sd_spi_port_acquire();
 
 /**
- * @brief Deselect and unlock SPI1 after a library operation.
- * Callback failures invalidate the card until it is initialized again.
- * @return false if not acquired or a hardware callback failed; true otherwise.
+ * @brief Deselect the card and unlock SPI1.
+ * I/O errors require card initialization before reuse.
+ * @return true if the operation completed without callback errors.
  */
 bool sd_spi_port_release();
 
 /**
- * @brief Read cached initialization state without accessing the card.
- * @return true after successful initialization with no later I/O failure.
- * Physical removal is detected by subsequent I/O, not by this check.
+ * @brief Check cached card status without reading hardware.
+ * @return true if initialized with no recorded I/O failure.
  */
 bool sd_spi_port_is_ready();
