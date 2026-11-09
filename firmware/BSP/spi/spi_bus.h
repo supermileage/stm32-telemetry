@@ -61,26 +61,21 @@ struct spi_device {
 bool spi_bus_init(spi_bus_t *bus, SPI_HandleTypeDef *handle);
 
 /**
- * @brief Lock the bus for a transaction, leaving CS high.
+ * @brief Lock the bus and assert the device's CS low.
  *
  * Task context only, with the scheduler running. Calls cannot be nested.
  * Mode and clock stay at their CubeMX settings; all devices must support them.
- * @param device Device to keep valid and unchanged until release.
+ * @param device Device to keep valid and unchanged until spi_end().
  * @param wait_ticks Mutex timeout in FreeRTOS ticks.
  * @return true if acquired; false for invalid input, wrong context, nesting, or timeout.
  */
-bool spi_acquire(const spi_device_t *device, TickType_t wait_ticks);
+bool spi_begin(const spi_device_t *device, TickType_t wait_ticks);
 
 /**
- * @brief Change CS while keeping the bus locked.
- * @param device Device holding the bus in the calling task.
- * @param selected true for CS low; false for CS high.
- * @return true if updated; false if the caller does not own the bus.
- */
-bool spi_select(const spi_device_t *device, bool selected);
-
-/**
- * @brief Transfer bytes without changing CS.
+ * @brief Perform a blocking, full-duplex 8-bit transfer without changing CS.
+ *
+ * CS stays low across transfers after spi_begin(). Failure leaves ownership
+ * unchanged; the caller must still call spi_end(). Task context only.
  * @param device Device holding the bus in the calling task.
  * @param tx Buffer of size bytes; use dummy bytes such as 0xFF when reading.
  * @param[out] rx Buffer with room for size bytes.
@@ -88,14 +83,34 @@ bool spi_select(const spi_device_t *device, bool selected);
  * @param timeout_ms HAL timeout in milliseconds.
  * @return true on success; false for invalid input, missing ownership, or HAL failure.
  */
-bool spi_exchange(const spi_device_t *device, const uint8_t *tx, uint8_t *rx,
+bool spi_transfer(const spi_device_t *device, const uint8_t *tx, uint8_t *rx,
                   uint16_t size, uint32_t timeout_ms);
 
 /**
  * @brief Raise CS and unlock the bus, including after a failed transfer.
- * @param device Device that acquired the bus. Calls without ownership are ignored.
+ * @param device Device that acquired the bus in this task.
+ * Calls outside running task context or without ownership are ignored.
  */
-void spi_release(const spi_device_t *device);
+void spi_end(const spi_device_t *device);
+
+/* SD compatibility: keep the mutex while clocking with CS high.
+ * Ordinary devices should use spi_begin(), spi_transfer(), and spi_end(). */
+
+/**
+ * @brief Lock the bus with CS high for protocols requiring deselected clocks.
+ * Same context, lifetime, timeout, and nesting rules as spi_begin().
+ * Release with spi_end(), including after a failed transfer.
+ * @return true if acquired; false for invalid input, wrong context, nesting, or timeout.
+ */
+bool spi_acquire(const spi_device_t *device, TickType_t wait_ticks);
+
+/**
+ * @brief Change CS without releasing the mutex, for SD protocol callbacks.
+ * @param device Device holding the bus in the calling task.
+ * @param selected true for CS low; false for CS high.
+ * @return true if updated; false if the caller does not own the bus.
+ */
+bool spi_select(const spi_device_t *device, bool selected);
 
 #ifdef __cplusplus
 }

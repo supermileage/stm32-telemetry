@@ -49,12 +49,20 @@ using this module with SPI2.
 | Function | Purpose |
 |---|---|
 | `spi_bus_init()` | Checks the CubeMX setup and creates the bus mutex |
-| `spi_acquire()` | Locks the bus without changing its settings |
-| `spi_select()` | Controls the device's chip-select pin |
-| `spi_exchange()` | Sends and receives data |
-| `spi_release()` | Deselects the device and unlocks the bus |
+| `spi_begin()` | Locks the bus and drives the device's CS low |
+| `spi_transfer()` | Sends and receives bytes, keeping CS unchanged |
+| `spi_end()` | Drives CS high and unlocks the bus, even after transfer failure |
 
-A device must acquire the bus before communicating and release it afterward, even if a transfer fails.
+A device must begin a transaction before communicating and end it afterward,
+even if a transfer fails:
+
+```c
+if (spi_begin(&device, pdMS_TO_TICKS(50))) {
+    bool ok = spi_transfer(&device, tx, rx, size, 50);
+    spi_end(&device);
+    /* Handle ok here; always end the transaction before returning. */
+}
+```
 
 Keep the lock across the whole transaction, including separate command and data
 transfers. Another task must not select its device in the middle of that sequence.
@@ -73,6 +81,11 @@ configuration API in the wrapper.
 - Bus locking uses FreeRTOS ticks, while transfer timeouts use milliseconds.
 - Bus objects must remain valid and must not be copied after initialization.
 - The module uses static synchronization objects and does not allocate memory dynamically.
+
+The SD adapter retains two compatibility operations: `spi_acquire()` locks with
+CS high, and `spi_select()` changes CS while keeping the lock. It uses
+`spi_transfer()` and `spi_end()` for transfers and cleanup. These operations are
+needed for SD's CS-high clocks; ordinary devices use the four-function API above.
 
 ## SD Card
 

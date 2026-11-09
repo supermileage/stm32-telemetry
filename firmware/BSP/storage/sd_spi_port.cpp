@@ -21,7 +21,7 @@ struct Port {
 bool transfer(Port &p, const uint8_t *tx, uint8_t *rx, uint16_t length)
 {
     // Byte and CS callbacks cannot return errors, so release reports them.
-    if (!p.locked || p.failed || !spi_exchange(&p.device, tx, rx, length, timeout_ms)) {
+    if (!p.locked || p.failed || !spi_transfer(&p.device, tx, rx, length, timeout_ms)) {
         p.failed = true;
         return false;
     }
@@ -130,7 +130,7 @@ bool sd_card_configure(void)
     if (!spi_acquire(&port.device, pdMS_TO_TICKS(timeout_ms))) {
         return false;
     }
-    spi_release(&port.device);
+    spi_end(&port.device);
     SD_IO io{};
     io.context = &port;
     io.spi_byte = exchange;
@@ -148,6 +148,7 @@ bool sd_card_configure(void)
 
 SD_Card *sd_spi_port_acquire()
 {
+    // SD needs CS-high clocks while retaining the lock across the whole operation.
     if (!port.bound || port.locked || !spi_acquire(&port.device, pdMS_TO_TICKS(timeout_ms))) {
         return nullptr;
     }
@@ -161,7 +162,7 @@ bool sd_spi_port_release()
     if (!port.locked) {
         return false;
     }
-    spi_release(&port.device);
+    spi_end(&port.device);
     port.locked = false;
     if (port.failed) {
         SD_DeInit_Card(&port.card);
