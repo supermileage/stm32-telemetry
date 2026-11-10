@@ -91,6 +91,8 @@ void Error_Handler(void);
 #define WRLS_UART4_TX_GPIO_Port GPIOC
 #define T_SWCLK_Pin GPIO_PIN_14
 #define T_SWCLK_GPIO_Port GPIOA
+#define CN3_SPI_SEL_Pin GPIO_PIN_13
+#define CN3_SPI_SEL_GPIO_Port GPIOH
 #define OCTOSPI_F_IO5_Pin GPIO_PIN_10
 #define OCTOSPI_F_IO5_GPIO_Port GPIOH
 #define PC14_OSC32_IN_Pin GPIO_PIN_14
