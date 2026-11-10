@@ -1,12 +1,17 @@
-# Binary logging format
+# Binary log format
 
-[`log_file.c`](log_file.c) writes version 1 logs as
-`LOG00000.BIN` through `LOG99999.BIN`, using the first unused name.
-Every file starts with a header. All integers are unsigned and little endian.
+The current writer creates `LOG00000.BIN` through `LOG99999.BIN`, choosing the
+first unused name. Each file has a header followed by record frames. Header and
+frame integers are unsigned and little endian. Each sensor defines its payload
+separately.
+
+Queued records hold elapsed time, UTC, and time status. This version 1 file format
+stores only the lower 32 bits of acquisition elapsed time. The planned sensor CSV
+files will also save UTC and its status.
 
 ## File header
 
-| Offset | Size (bytes) | Value |
+| Offset | Bytes | Value |
 | --- | --- | --- |
 | 0 | 4 | ASCII `STML` |
 | 4 | 2 | Format version: 1 |
@@ -14,45 +19,43 @@ Every file starts with a header. All integers are unsigned and little endian.
 | 8 | 4 | Timestamp frequency: 1000 Hz |
 | 12 | 4 | Reserved: zero |
 
-Validate all header fields before reading records. The header has no checksum.
+Check all header fields before reading records. The header has no checksum.
 
 ## Record frame
 
-| Offset | Size (bytes) | Value |
+| Offset | Bytes | Value |
 | --- | --- | --- |
 | 0 | 4 | ASCII `REC1` |
-| 4 | 4 | Milliseconds since boot |
-| 8 | 2 | Producer-selected source ID |
-| 10 | 2 | Payload length, 0 through 64 |
-| 12 | payload length | Payload bytes |
+| 4 | 4 | Acquisition milliseconds since boot, lower 32 bits |
+| 8 | 2 | Sensor source ID |
+| 10 | 2 | Payload length, from 0 to 64 |
+| 12 | Payload length | Encoded sensor data |
 | 12 + payload length | 4 | CRC-32/ISO-HDLC |
 
-A frame takes `16 + payload_length` bytes, with no padding. The CRC covers
-the 12-byte frame header and payload. It uses reflected polynomial
-`0xEDB88320`, initial value `0xFFFFFFFF`, and final XOR `0xFFFFFFFF`.
-Python's `zlib.crc32(frame_header + payload)` gives the same value; store it
-little endian.
+A frame uses `16 + payload_length` bytes with no padding. The CRC covers the
+12-byte frame header and payload. Its settings are:
 
-Each producer defines a source ID and payload format. Encode fields explicitly
-rather than writing a C struct directly. Timestamps restart on boot and wrap
-after `2^32` milliseconds (about 49.7 days).
+- Reflected polynomial: `0xEDB88320`
+- Initial value: `0xFFFFFFFF`
+- Final XOR: `0xFFFFFFFF`
 
-Application source IDs are registered in
-[`sensors/sources.h`](../sensors/sources.h). Payload types and
-encoders belong to their sensor modules, outside the generic logger.
-Source ID 1 is reserved for IMU data.
-See the [sensor guide](../sensors/README.md). Incompatible payload changes require
-a new source ID.
+Python's `zlib.crc32(frame_header + payload)` gives the same value. Store that
+result little endian.
 
-## Reading logs
+## Source IDs and timestamps
 
-After validating the file header, read frames in order and check the `REC1`
-marker, payload length, and CRC. Stop at the first corrupt or incomplete frame
-and keep earlier valid records. A valid header with no records is an empty log.
+Source IDs are listed in [`sources.h`](../sensors/sources.h). Source 1 is reserved
+for the IMU; source 2 is GPS. The sensor module defines each payload's field order,
+sizes, byte order, and units. See the [sensor guide](../sensors/README.md).
 
-For CSV exports, use the columns
-`timestamp_ms`, `source`, and `payload_hex`.
+The file's timestamp wraps every `2^32` milliseconds, about 49.7 days. The shared
+clock and queued records keep 64-bit elapsed time, but the binary format does not.
 
-See [storage and logging](../storage/storage_logging.md) for buffering, rotation, and
-shutdown. CRCs detect damaged records but do not protect FAT metadata from
-power loss.
+## Read a file
+
+After checking the header, read frames in order. Check the `REC1` marker, payload
+length, and CRC for each frame. Stop at the first damaged or incomplete frame and
+keep the earlier valid records. A valid header with no frames is an empty log.
+
+CRCs detect damaged records; they do not protect filesystem metadata from power
+loss. See the [logging guide](../storage/storage_logging.md) for sync and shutdown.

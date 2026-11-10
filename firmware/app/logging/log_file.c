@@ -116,7 +116,8 @@ FRESULT log_file_append(log_file_t *log, const log_record_t *record)
     uint8_t *frame = log->buffer + log->used;
     /* Encode fields explicitly: struct padding and native byte order are not the format. */
     memcpy(frame, "REC1", 4U);
-    put_u32_le(frame + 4U, record->timestamp_ms);
+    /* Keep the version 1 disk format until the CSV writer replaces it. */
+    put_u32_le(frame + 4U, (uint32_t)record->timestamp.elapsed_ms);
     put_u16_le(frame + 8U, record->source);
     put_u16_le(frame + 10U, record->length);
     memcpy(frame + 12U, record->payload, record->length);

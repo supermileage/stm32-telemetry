@@ -1,6 +1,8 @@
 #include "sample_clock.h"
 #include "stm32u5xx_hal.h"
 
+#include <stddef.h>
+
 /* All shared state is protected by saving and restoring the interrupt mask. */
 static volatile uint32_t last_tick_ms;
 static volatile uint64_t elapsed_ms;
@@ -46,24 +48,41 @@ uint64_t sample_clock_elapsed_ms(void)
 sample_timestamp_t sample_clock_now(void)
 {
     sample_timestamp_t timestamp = {0};
+    (void)sample_clock_from_tick(HAL_GetTick(), &timestamp);
+    return timestamp;
+}
 
+bool sample_clock_from_tick(uint32_t tick_ms, sample_timestamp_t *out)
+{
+    if (out == NULL) {
+        return false;
+    }
+
+    sample_timestamp_t timestamp = {0};
     uint32_t mask = lock_clock();
-    timestamp.elapsed_ms = update_elapsed();
+    uint64_t now = update_elapsed();
+    uint32_t age_ms = (uint32_t)now - tick_ms;
     bool has_utc = synchronized;
     uint64_t gps_elapsed_ms = anchor_elapsed_ms;
     int64_t gps_utc_ms = anchor_utc_ms;
     unlock_clock(mask);
 
-    if (has_utc) {
-        uint64_t age_ms = timestamp.elapsed_ms - gps_elapsed_ms;
-        if (age_ms <= (uint64_t)(INT64_MAX - gps_utc_ms)) {
-            timestamp.utc_ms = gps_utc_ms + (int64_t)age_ms;
-            timestamp.status = age_ms < SAMPLE_CLOCK_GPS_TIMEOUT_MS
+    if (age_ms > now) {
+        return false;
+    }
+    timestamp.elapsed_ms = now - age_ms;
+
+    if (has_utc && timestamp.elapsed_ms >= gps_elapsed_ms) {
+        uint64_t gps_age_ms = timestamp.elapsed_ms - gps_elapsed_ms;
+        if (gps_age_ms <= (uint64_t)(INT64_MAX - gps_utc_ms)) {
+            timestamp.utc_ms = gps_utc_ms + (int64_t)gps_age_ms;
+            timestamp.status = gps_age_ms < SAMPLE_CLOCK_GPS_TIMEOUT_MS
                 ? SAMPLE_TIME_GPS : SAMPLE_TIME_HOLDOVER;
         }
     }
 
-    return timestamp;
+    *out = timestamp;
+    return true;
 }
 
 bool sample_clock_sync_utc(uint64_t acquired_ms, int64_t utc_ms)

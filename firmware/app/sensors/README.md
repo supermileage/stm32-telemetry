@@ -1,46 +1,57 @@
-# Sensor Records
+# Sensor records
 
-Sensor tasks collect data, encode it into a payload, and send it to the logger. The logger handles queuing and writing records to the SD card without needing to understand the sensor data.
+Sensor tasks read measurements and send them to the logger. The logger copies
+records into a queue and writes them to the SD card.
 
-## Source IDs
+The GNSS task is currently connected to the application. The IMU has a reserved
+source ID, but its task has not been added to the main firmware yet.
 
-Each sensor type has a source ID defined in `sources.h`.
+## Submit a measurement
 
-For example, `LOG_SOURCE_IMU` (1) identifies IMU data.
+1. Create a zero-initialized `log_record_t`.
+2. Capture its timestamp when the measurement becomes available.
+3. Set the source ID from `sources.h`.
+4. Encode the measurement into `payload` and set `length`.
+5. Call `logger_submit(&record)`.
 
-Keep source IDs consistent so logged data can be decoded correctly. If a sensor's payload format changes in a way that breaks compatibility, assign it a new source ID.
+The payload can hold up to `LOG_PAYLOAD_MAX` bytes, currently 64. A successful
+submission copies the whole record, so the sensor can reuse its local record.
 
-## Logging Sensor Data
+`logger_submit()` does not wait for space. It returns `false` if the queue is
+full, the logger is unavailable, or the record is invalid. Check this return value
+and track rejected samples in the sensor's status.
 
-To log a sensor sample:
+## Capture the timestamp
 
-1. Create a `log_record_t` and initialize it to zero.
-2. Set its timestamp in milliseconds since boot.
-3. Set the sensor's source ID.
-4. Encode the sensor data into the payload.
-5. Set `length` to the number of payload bytes.
-6. Call `logger_submit()` to send the record to the logger.
+Use the [shared clock](../time/README.md) when reading a local sensor:
 
-The payload must not exceed `LOG_PAYLOAD_MAX` bytes.
+```c
+log_record_t record = {0};
+record.timestamp = sample_clock_now();
+```
 
-The logger queue copies the record, so the sensor task can safely reuse its record after submission.
+Keep that timestamp with the measurement. Waiting for the logger or SD card must
+not change the recorded acquisition time.
 
-`logger_submit()` returns `false` if the logger is unavailable, the queue is full, or the record is invalid.
+For buffered input, use the time saved when the data arrived. The GNSS parser uses
+`sample_clock_from_tick()` with the receive tick of the sentence's first `$` byte.
+See the [GNSS guide](gnss_logging.md) for details.
 
-## Payload Format
+## Define the payload
 
-Each sensor module is responsible for defining its sample data and encoding it into a payload.
+Each source ID identifies a payload format. Document the field order, field sizes,
+byte order, and units in the sensor module. Use clear units such as `m/s^2`,
+`deg/s`, and `degC`.
 
-When defining a payload, document:
+Encode fields explicitly. Copying a C struct directly into the payload can include
+padding and make files harder to decode. If a format changes incompatibly, give
+it a new source ID.
 
-- **Units:** Such as m/s², °C, or degrees/s.
-- **Byte order:** How multi-byte values are stored.
-- **Field sizes:** How many bytes each value uses.
-- **Field order:** The order values appear in the payload.
+## What reaches the SD card
 
-Do not write C structs directly into the payload. Struct padding and data type sizes can vary, making the logs harder to decode reliably.
+Queued records contain elapsed time, UTC, and synchronization status. The current
+binary writer saves only the lower 32 bits of elapsed time. UTC and its status
+will be saved when the CSV logger is connected.
 
-## Related Documentation
-
-- [Storage and Logging](../storage/storage_logging.md) — Logger startup, queue handling, ISR submission, status, and shutdown.
-- [Binary Log Format](../logging/logging_format.md) — Record structure, framing, and CRC validation.
+See [storage and logging](../storage/storage_logging.md) for the queue and stop
+API, and the [binary format](../logging/logging_format.md) for the file layout.

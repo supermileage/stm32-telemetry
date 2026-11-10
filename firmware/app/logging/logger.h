@@ -1,7 +1,4 @@
-/**
- * @file
- * @brief Queue-based logging API for sensor tasks and interrupts.
- */
+// Queue-based logging API for sensor tasks and interrupts.
 #ifndef LOGGER_H
 #define LOGGER_H
 
@@ -14,99 +11,93 @@
 extern "C" {
 #endif
 
-/** Queue capacity shared by records, flush requests, and stop requests. */
+// Queue capacity shared by records, flush requests, and stop requests.
 #define LOGGER_QUEUE_DEPTH 64U
-/** Target time between syncs; scheduling and card latency can delay them. */
+// Target time between syncs; scheduling and card latency can delay them.
 #define LOGGER_SYNC_INTERVAL_MS 1000U
 
-/** Logger lifecycle, reported by logger_get_status(). */
+// Logger lifecycle, reported by logger_get_status().
 typedef enum {
-    /** The command queue has not been created. */
+    // The command queue has not been created.
     LOGGER_NOT_STARTED,
-    /** Accepting records while the logger mounts storage and opens the file. */
+    // Accepting records while the logger mounts storage and opens the file.
     LOGGER_STARTING,
-    /** The log file is open and the worker is consuming commands. */
+    // The log file is open and the worker is consuming commands.
     LOGGER_READY,
-    /** A stop is queued; new records are rejected. */
+    // A stop is queued; new records are rejected.
     LOGGER_STOPPING,
-    /** The file was closed and the card unmounted successfully. */
+    // The file was closed and the card unmounted successfully.
     LOGGER_STOPPED,
-    /** Startup, logging, or shutdown failed; reboot to restart. */
+    // Startup, logging, or shutdown failed; reboot to restart.
     LOGGER_FAILED
 } logger_state_t;
 
-/**
- * Logger state and cumulative record counts since boot.
- * Counters are uint32_t and wrap. Accepted records lost on failure are not added
- * to dropped_records; compare accepted_records with synced_records for progress.
- */
+// Logger state and cumulative record counts since boot.
+// Counters are uint32_t and wrap. Accepted records lost on failure are not added
+// to dropped_records; compare accepted_records with synced_records for progress.
 typedef struct {
-    /** Current lifecycle state. */
+    // Current lifecycle state.
     logger_state_t state;
-    /** Total records successfully queued, including processed ones. */
+
+    // Total records successfully queued, including processed ones.
     uint32_t accepted_records;
-    /** Handed to the file writer; may still be buffered. */
+
+    // Handed to the file writer; may still be buffered.
     uint32_t processed_records;
-    /** Records covered by the last successful sync or close. */
+
+    // Records covered by the last successful sync or close.
     uint32_t synced_records;
-    /** Valid records rejected by a full or unavailable logger. */
+
+    // Valid records rejected by a full or unavailable logger.
     uint32_t dropped_records;
-    /** Invalid record pointers, lengths, or ISR wake pointers. */
+
+    // Invalid record pointers, lengths, or ISR wake pointers.
     uint32_t invalid_records;
-    /** Pending records plus flush and stop requests. */
+
+    // Pending records plus flush and stop requests.
     uint32_t queued_commands;
-    /** FatFs result from startup, I/O, or shutdown; zero until reported. */
+
+    // FatFs result from startup, I/O, or shutdown; zero until reported.
     int filesystem_error;
-    /** Last published log path, NUL-terminated; empty before open. */
+
+    // Last published log path, NUL-terminated; empty before open.
     char path[17];
 } logger_status_t;
 
-/**
- * @brief Create the logger queue and its sole filesystem owner task.
- * Call before the scheduler and producer interrupts start. The task mounts the
- * card and opens the log after the scheduler starts. Repeated calls do nothing,
- * including after failure or shutdown; reboot to restart. Check logger_get_status()
- * for startup and I/O errors.
- */
+// Create the logger queue and its sole filesystem owner task.
+// Call before the scheduler and producer interrupts start. The task mounts the
+// card and opens the log after the scheduler starts. Repeated calls do nothing,
+// including after failure or shutdown; reboot to restart. Check logger_get_status()
+// for startup and I/O errors.
 void logger_start_task(void);
 
-/**
- * @brief Copy a record to the queue without waiting for space.
- * Call from a task after logger_start_task(). Accepted records can still be lost on I/O failure.
- * @param record Sample with length at most LOG_PAYLOAD_MAX; reusable after this call.
- * @return true if queued; false for invalid input, a full queue, or an unavailable logger.
- */
+// Copy a record to the queue without waiting for space.
+// Call from a task after logger_start_task(). Accepted records can still be lost on I/O failure.
+// Use up to LOG_PAYLOAD_MAX payload bytes. The record can be reused after this call.
+// Returns true if queued; false for invalid input, a full queue, or an unavailable logger.
 bool logger_submit(const log_record_t *record);
 
-/**
- * @brief Queue a record from a FreeRTOS syscall-safe interrupt.
- * Call logger_start_task() before enabling producer interrupts. The NVIC
- * priority must satisfy configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY.
- * @param record Sample to copy, with length at most LOG_PAYLOAD_MAX.
- * @param[in,out] higher_priority_task_woken Initialize to pdFALSE; pass to portYIELD_FROM_ISR afterward.
- * @return true if queued; false for invalid input, a full queue, or an unavailable logger.
- */
+// Queue a record from a FreeRTOS syscall-safe interrupt.
+// Call logger_start_task() before enabling producer interrupts. The NVIC
+// priority must satisfy configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY.
+// The payload must fit in LOG_PAYLOAD_MAX bytes.
+// Initialize higher_priority_task_woken to pdFALSE, then pass it to portYIELD_FROM_ISR().
+// Returns true if queued; false for invalid input, a full queue, or an unavailable logger.
 bool logger_submit_from_isr(const log_record_t *record, BaseType_t *higher_priority_task_woken);
 
-/**
- * @brief Queue a sync after earlier records. Task context only.
- * Use synced_records to check completion.
- * @return true if queued; false if the queue is full or the logger is unavailable.
- */
+// Queue a sync after earlier records. Task context only.
+// Use synced_records to check completion.
+// Returns true if queued; false if the queue is full or the logger is unavailable.
 bool logger_request_flush(void);
 
-/**
- * @brief Queue a stop and reject further records once accepted.
- * Task context only. Retry if full, then wait for LOGGER_STOPPED before removing
- * the card. LOGGER_FAILED reports an error; restarting requires a reboot.
- * @return true if queued; false if the queue is full or the logger is unavailable.
- */
+// Queue a stop and reject further records once accepted.
+// Task context only. Retry if full, then wait for LOGGER_STOPPED before removing
+// the card. LOGGER_FAILED reports an error; restarting requires a reboot.
+// Returns true if queued; false if the queue is full or the logger is unavailable.
 bool logger_request_stop(void);
 
-/**
- * @brief Copy a consistent logger status snapshot. Task context only.
- * @param[out] out Snapshot destination; NULL is ignored.
- */
+// Copy a consistent logger status snapshot. Task context only.
+// NULL is ignored.
 void logger_get_status(logger_status_t *out);
 
 #ifdef __cplusplus

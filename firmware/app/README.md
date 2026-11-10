@@ -1,36 +1,36 @@
-# Application Code
+# Application code
 
-This folder contains the application startup, storage, logging, and sensor code.
+This folder contains the sensor tasks, shared clock, and SD logger.
 
-## Files
+The firmware includes GPS reception and UTC synchronization. The logger still
+writes binary files. The C++ `CsvFile` class is ready, but recording sessions and
+sensor CSV files are the next step.
 
-| Path | Purpose |
+## Where to start
+
+| Folder | What it does |
 | --- | --- |
-| `app.h`, `app.cpp` | Connect C startup code to the C++ application |
-| `storage/` | SD card setup, mounting, and unmounting |
-| `logging/` | Logger task, record queue, and binary log files |
-| `sensors/` | Sensor data collection and encoding |
+| `app.h`, `app.cpp` | Start the application tasks |
+| `sensors/` | Read sensors and prepare records for the logger |
+| `time/` | Provide elapsed time and GPS-based UTC |
+| `logging/` | Queue records and write log files |
+| `storage/` | Mount and unmount the SD card |
 
 ## Startup
 
-`app_init()` runs after peripheral and RTOS setup, before the scheduler starts.
+`app_init()` runs after peripheral setup and before the scheduler starts. It
+creates the logger and GNSS tasks. Once the scheduler runs, the logger mounts the
+SD card and opens a file while the GNSS task starts receiving GPS data.
 
-1. `app_init()` creates the logger task and queue using `logger_start_task()`.
-2. Once the scheduler starts, the logger task mounts the SD card using `storage_mount()`.
-3. The logger opens a log file and starts writing queued records.
+**Only the logger task accesses the SD card.** Sensor tasks send records through
+the logger queue. Flush and stop requests use the same queue, so they are handled
+after earlier records.
 
-**Only the logger task accesses FatFs and the SD driver.** Sensor tasks send records through the queue instead of writing files directly.
+## Guides
 
-Use `logger_get_status()` to check startup progress or errors. Flush and stop requests also go through the queue and are processed in order.
-
-See the [storage and logging guide](storage/storage_logging.md) for flushing and stopping the logger.
-
-Storage and logging headers work with both C and C++.
-
-## Sensor Logging
-
-Sensor tasks encode samples and send them to the logger, which writes them to binary files with framing and CRC checks.
-
-Source IDs are defined in `sensors/sources.h`.
-
-See the [sensor guide](sensors/README.md) for submitting records and the [binary format](logging/logging_format.md) for reading log files.
+- [Sensor records](sensors/README.md): add a sensor and submit its measurements.
+- [GPS reception](sensors/gnss_logging.md): parse RMC messages and update UTC.
+- [Shared clock](time/README.md): timestamp measurements when they are acquired.
+- [Storage and logging](storage/storage_logging.md): check status, sync, and stop.
+- [Binary format](logging/logging_format.md): read the current log files.
+- [CSV file class](logging/csv_file.md): use the buffered C++ file writer.

@@ -41,7 +41,7 @@ bool uart_port_init(uart_port_t *port, UART_HandleTypeDef *handle)
         return false;
     }
 
-    if (port->rx_stream != NULL) {
+    if (port->rx_queue != NULL) {
         return port->handle == handle;
     }
 
@@ -59,15 +59,15 @@ bool uart_port_init(uart_port_t *port, UART_HandleTypeDef *handle)
     /* All implemented priority bits must be preemption bits, as HAL_Init sets. */
     configASSERT(NVIC_GetPriorityGrouping() == NVIC_PRIORITYGROUP_4);
 
-    StreamBufferHandle_t stream =
-        xStreamBufferCreateStatic(sizeof(port->rx_storage), 1U, port->rx_storage, &port->rx_control);
+    QueueHandle_t queue = xQueueCreateStatic(UART_PORT_RX_BUFFER_SIZE,
+        sizeof(uart_rx_byte_t), port->rx_storage, &port->rx_control);
     SemaphoreHandle_t mutex = xSemaphoreCreateMutexStatic(&port->tx_mutex_storage);
-    if (stream == NULL || mutex == NULL) {
+    if (queue == NULL || mutex == NULL) {
         return false;
     }
 
     port->handle = handle;
-    port->rx_stream = stream;
+    port->rx_queue = queue;
     port->tx_mutex = mutex;
     binding->port = port;
 
@@ -76,7 +76,7 @@ bool uart_port_init(uart_port_t *port, UART_HandleTypeDef *handle)
 
 bool uart_port_start_rx(uart_port_t *port)
 {
-    if (!is_task_context() || port == NULL || port->rx_stream == NULL ||
+    if (!is_task_context() || port == NULL || port->rx_queue == NULL ||
         (port->handle->Init.Mode & UART_MODE_RX) == 0U) {
         return false;
     }
@@ -106,12 +106,35 @@ bool uart_port_start_rx(uart_port_t *port)
 size_t uart_port_read(uart_port_t *port, uint8_t *destination, size_t capacity,
                      TickType_t timeout_ticks)
 {
-    if (!is_task_context() || port == NULL || port->rx_stream == NULL ||
+    if (!is_task_context() || port == NULL || port->rx_queue == NULL ||
         destination == NULL || capacity == 0U) {
         return 0U;
     }
 
-    return xStreamBufferReceive(port->rx_stream, destination, capacity, timeout_ticks);
+    size_t count = 0U;
+    uart_rx_byte_t received;
+    while (count < capacity &&
+           xQueueReceive(port->rx_queue, &received, count == 0U ? timeout_ticks : 0U) == pdPASS) {
+        destination[count++] = received.byte;
+    }
+    return count;
+}
+
+size_t uart_port_read_timed(uart_port_t *port, uart_rx_byte_t *destination,
+                           size_t capacity, TickType_t timeout_ticks)
+{
+    if (!is_task_context() || port == NULL || port->rx_queue == NULL ||
+        destination == NULL || capacity == 0U) {
+        return 0U;
+    }
+
+    size_t count = 0U;
+    while (count < capacity &&
+           xQueueReceive(port->rx_queue, &destination[count],
+                         count == 0U ? timeout_ticks : 0U) == pdPASS) {
+        ++count;
+    }
+    return count;
 }
 
 bool uart_port_write(uart_port_t *port, const uint8_t *data, uint16_t length,
@@ -136,7 +159,7 @@ uart_rx_status_t uart_port_rx_status(const uart_port_t *port)
 {
     uart_rx_status_t status = {0};
 
-    if (!is_task_context() || port == NULL || port->rx_stream == NULL) {
+    if (!is_task_context() || port == NULL || port->rx_queue == NULL) {
         return status;
     }
 
@@ -165,7 +188,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *handle)
     }
 
     BaseType_t woken = pdFALSE;
-    if (xStreamBufferSendFromISR(port->rx_stream, &port->rx_byte, 1U, &woken) != 1U) {
+    uart_rx_byte_t received = {
+        .tick_ms = HAL_GetTick(),
+        .byte = port->rx_byte
+    };
+    if (xQueueSendFromISR(port->rx_queue, &received, &woken) != pdPASS) {
         ++port->rx_dropped_bytes;
     }
 

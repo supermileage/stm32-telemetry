@@ -1,7 +1,4 @@
-/**
- * @file
- * @brief Buffered binary log writer, used only by the logger task.
- */
+// Buffered binary log writer, used only by the logger task.
 #ifndef LOG_FILE_H
 #define LOG_FILE_H
 
@@ -14,69 +11,66 @@
 extern "C" {
 #endif
 
-/** Size of the RAM write buffer in bytes. */
+// Size of the RAM write buffer in bytes.
 #define LOG_BUFFER_SIZE 4096U
-/** Maximum file size, including the header and record framing. */
+// Maximum file size, including the header and record framing.
 #define LOG_ROTATE_BYTES (64UL * 1024UL * 1024UL)
-/** Capacity of a log path, including its NUL terminator. */
+// Capacity of a log path, including its NUL terminator.
 #define LOG_PATH_SIZE 17U
 
-/**
- * Writer state owned by the logger task; no internal locking is provided.
- * Keep it in static storage because the buffer is too large for the task stack.
- * Zero-initialize before the first open and leave the fields to the writer.
- */
+// Writer state owned by the logger task; no internal locking is provided.
+// Keep it in static storage because the buffer is too large for the task stack.
+// Zero-initialize before the first open and leave the fields to the writer.
 typedef struct {
-    /** FatFs handle for the current file. */
+    // FatFs handle for the current file.
     FIL file;
-    /** Bytes waiting to be written. */
+
+    // Bytes waiting to be written.
     uint8_t buffer[LOG_BUFFER_SIZE];
-    /** Number of valid bytes in buffer. */
+
+    // Number of valid bytes in buffer.
     UINT used;
-    /** File size including bytes still buffered. */
+
+    // File size including bytes still buffered.
     uint32_t size;
-    /** Next LOGxxxxx.BIN number to try. */
+
+    // Next LOGxxxxx.BIN number to try.
     uint32_t next_number;
-    /** Saved error; later writes stop after a failure. */
+
+    // Saved error; later writes stop after a failure.
     FRESULT error;
-    /** Whether the FatFs handle needs closing. */
+
+    // Whether the FatFs handle needs closing.
     bool open;
-    /** Current or most recently attempted filename. */
+
+    // Current or most recently attempted filename.
     char path[LOG_PATH_SIZE];
 } log_file_t;
 
-/**
- * @brief Open the first unused LOGxxxxx.BIN and sync its header.
- * Requires mounted storage. Each open searches from LOG00000.BIN again.
- * Call log_file_close() after failure before unmounting.
- * @param[in,out] log Closed, zero-initialized writer.
- * @return FR_OK, FR_EXIST if names are exhausted, or a FatFs error.
- */
+// Open the first unused LOGxxxxx.BIN and sync its header.
+// Requires mounted storage. Each open searches from LOG00000.BIN again.
+// Call log_file_close() after failure before unmounting.
+// Use a closed, zero-initialized writer.
+// Returns FR_OK, FR_EXIST if names are exhausted, or a FatFs error.
 FRESULT log_file_open(log_file_t *log);
 
-/**
- * @brief Buffer a framed record, rotating at LOG_ROTATE_BYTES.
- * Success does not mean synced. Do not retry failed appends; writes may be partial.
- * @param[in,out] log Open writer owned by the logger task.
- * @param record Sample with length at most LOG_PAYLOAD_MAX.
- * @return FR_OK if buffered, otherwise a parameter, state, or I/O error.
- */
+// Buffer a framed record, rotating at LOG_ROTATE_BYTES.
+// Success does not mean synced. Do not retry failed appends; writes may be partial.
+// Call from the logger task with an open writer.
+// The payload must fit in LOG_PAYLOAD_MAX bytes.
+// Returns FR_OK if buffered, otherwise a parameter, state, or I/O error.
 FRESULT log_file_append(log_file_t *log, const log_record_t *record);
 
-/**
- * @brief Write the buffer and sync file data and metadata.
- * @param[in,out] log Open writer owned by the logger task.
- * @return FR_OK on success, otherwise a parameter, state, or I/O error.
- */
+// Write the buffer and sync file data and metadata.
+// Call from the logger task with an open writer.
+// Returns FR_OK on success, otherwise a parameter, state, or I/O error.
 FRESULT log_file_sync(log_file_t *log);
 
-/**
- * @brief Flush and close, attempting cleanup even after a write failure.
- * After a close error, stop using this writer and unmount; restarting storage
- * requires a reboot. A failed FatFs close may leave its handle valid.
- * @param[in,out] log Writer to close; already closed writers return their saved error.
- * @return The first saved, write, or close error, or FR_OK.
- */
+// Flush and close, attempting cleanup even after a write failure.
+// After a close error, stop using this writer and unmount; restarting storage
+// requires a reboot. A failed FatFs close may leave its handle valid.
+// If the writer is already closed, its saved error is returned.
+// Returns the first saved, write, or close error, or FR_OK.
 FRESULT log_file_close(log_file_t *log);
 
 #ifdef __cplusplus
