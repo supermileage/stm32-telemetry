@@ -1,47 +1,48 @@
-#include "sd_spi_port.hpp"
+#include "sd_spi_port.h"
 #include "sd_card.h"
 #include "spi/spi_bus.h"
 #include "main.h"
 #include "spi.h"
-#include <cstring>
+#include <string.h>
 
-namespace {
-constexpr uint32_t timeout_ms = 50U;
-constexpr uint32_t maximum_sck_hz = 400000U;
+static const uint32_t timeout_ms = 50U;
+static const uint32_t maximum_sck_hz = 400000U;
 
-struct Port {
+typedef struct {
     spi_device_t device;
     SD_Card card;
     uint32_t sck_hz;
     bool bound;
     bool locked;
     bool failed;
-} port{};
+} sd_spi_port_t;
 
-bool transfer(Port &p, const uint8_t *tx, uint8_t *rx, uint16_t length)
+static sd_spi_port_t port;
+
+static bool transfer(sd_spi_port_t *p, const uint8_t *tx, uint8_t *rx, uint16_t length)
 {
     // Byte and CS callbacks cannot return errors, so release reports them.
-    if (!p.locked || p.failed || !spi_transfer(&p.device, tx, rx, length, timeout_ms)) {
-        p.failed = true;
+    if (!p->locked || p->failed || !spi_transfer(&p->device, tx, rx, length, timeout_ms)) {
+        p->failed = true;
         return false;
     }
     return true;
 }
 
-uint8_t exchange(void *context, uint8_t tx)
+static uint8_t exchange(void *context, uint8_t tx)
 {
-    auto &p = *static_cast<Port *>(context);
+    sd_spi_port_t *p = context;
     uint8_t rx = 0xFFU;
     (void)transfer(p, &tx, &rx, 1U);
     return rx;
 }
 
-int receive(void *context, uint8_t *rx, uint16_t length)
+static int receive(void *context, uint8_t *rx, uint16_t length)
 {
-    auto &p = *static_cast<Port *>(context);
+    sd_spi_port_t *p = context;
     uint8_t dummy[32];
     // Small chunks provide read clocks without a sector-sized scratch buffer.
-    std::memset(dummy, 0xFF, sizeof(dummy));
+    memset(dummy, 0xFF, sizeof(dummy));
     while (length != 0U) {
         uint16_t chunk = length < sizeof(dummy) ? length : sizeof(dummy);
         if (!transfer(p, dummy, rx, chunk)) {
@@ -53,9 +54,9 @@ int receive(void *context, uint8_t *rx, uint16_t length)
     return SD_OK;
 }
 
-int send(void *context, const uint8_t *tx, uint16_t length)
+static int send(void *context, const uint8_t *tx, uint16_t length)
 {
-    auto &p = *static_cast<Port *>(context);
+    sd_spi_port_t *p = context;
     uint8_t discarded[32];
     while (length != 0U) {
         uint16_t chunk = length < sizeof(discarded) ? length : sizeof(discarded);
@@ -68,52 +69,53 @@ int send(void *context, const uint8_t *tx, uint16_t length)
     return SD_OK;
 }
 
-void select(void *context)
+static void select(void *context)
 {
-    auto &p = *static_cast<Port *>(context);
-    if (!p.locked || !spi_select(&p.device, true)) {
-        p.failed = true;
+    sd_spi_port_t *p = context;
+    if (!p->locked || !spi_select(&p->device, true)) {
+        p->failed = true;
     }
 }
 
-void deselect(void *context)
+static void deselect(void *context)
 {
-    auto &p = *static_cast<Port *>(context);
-    if (!p.locked || !spi_select(&p.device, false)) {
-        p.failed = true;
+    sd_spi_port_t *p = context;
+    if (!p->locked || !spi_select(&p->device, false)) {
+        p->failed = true;
         return;
     }
     // Supply eight trailing clocks with CS high, as the library requires.
     (void)exchange(context, 0xFFU);
 }
 
-int set_speed(void *context, uint8_t speed)
+static int set_speed(void *context, uint8_t speed)
 {
-    const auto &p = *static_cast<Port *>(context);
+    const sd_spi_port_t *p = context;
     // Initialization and normal I/O both use the validated CubeMX clock.
     return (speed == SD_SPI_SPEED_LOW || speed == SD_SPI_SPEED_HIGH) &&
-           p.sck_hz != 0U && p.sck_hz <= maximum_sck_hz ? SD_OK : SD_ERR;
+           p->sck_hz != 0U && p->sck_hz <= maximum_sck_hz ? SD_OK : SD_ERR;
 }
 
-uint32_t clock_hz(void *context)
+static uint32_t clock_hz(void *context)
 {
-    return static_cast<Port *>(context)->sck_hz;
+    const sd_spi_port_t *p = context;
+    return p->sck_hz;
 }
 
-uint32_t tick_ms(void *)
+static uint32_t tick_ms(void *context)
 {
+    (void)context;
     return HAL_GetTick();
 }
-} // namespace
 
 bool sd_card_configure(void)
 {
-    static spi_bus_t bus{};
+    static spi_bus_t bus;
 
     if (port.locked) {
         return false;
     }
-    port = {};
+    port = (sd_spi_port_t){0};
     if (!spi_bus_init(&bus, &hspi1)) {
         return false;
     }
@@ -121,17 +123,22 @@ bool sd_card_configure(void)
     uint32_t mbr = (hspi1.Init.BaudRatePrescaler & SPI_CFG1_MBR) >> SPI_CFG1_MBR_Pos;
     uint32_t sck_hz = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI1) / (2U << mbr);
     if (sck_hz == 0U || sck_hz > maximum_sck_hz ||
+        hspi1.Init.Mode != SPI_MODE_MASTER ||
+        hspi1.Init.Direction != SPI_DIRECTION_2LINES ||
+        hspi1.Init.DataSize != SPI_DATASIZE_8BIT ||
+        hspi1.Init.FirstBit != SPI_FIRSTBIT_MSB ||
+        hspi1.Init.NSS != SPI_NSS_SOFT ||
         hspi1.Init.CLKPolarity != SPI_POLARITY_LOW ||
         hspi1.Init.CLKPhase != SPI_PHASE_1EDGE) {
         return false;
     }
-    port.device = {&bus, SD_CS_GPIO_Port, SD_CS_Pin};
+    port.device = (spi_device_t){&bus, SD_CS_GPIO_Port, SD_CS_Pin};
     port.sck_hz = sck_hz;
     if (!spi_acquire(&port.device, pdMS_TO_TICKS(timeout_ms))) {
         return false;
     }
     spi_end(&port.device);
-    SD_IO io{};
+    SD_IO io = {0};
     io.context = &port;
     io.spi_byte = exchange;
     io.receive = receive;
@@ -146,18 +153,18 @@ bool sd_card_configure(void)
     return port.bound;
 }
 
-SD_Card *sd_spi_port_acquire()
+SD_Card *sd_spi_port_acquire(void)
 {
     // SD needs CS-high clocks while retaining the lock across the whole operation.
     if (!port.bound || port.locked || !spi_acquire(&port.device, pdMS_TO_TICKS(timeout_ms))) {
-        return nullptr;
+        return NULL;
     }
     port.locked = true;
     port.failed = false;
     return &port.card;
 }
 
-bool sd_spi_port_release()
+bool sd_spi_port_release(void)
 {
     if (!port.locked) {
         return false;
@@ -170,7 +177,7 @@ bool sd_spi_port_release()
     return !port.failed;
 }
 
-bool sd_spi_port_is_ready()
+bool sd_spi_port_is_ready(void)
 {
     return port.bound && !port.failed && SD_Get_Info_Card(&port.card)->initialized != 0U;
 }

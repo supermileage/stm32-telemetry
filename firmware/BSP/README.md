@@ -1,247 +1,146 @@
-# Board Support Package (BSP)
+# Board support package
 
-The Board Support Package (BSP) connects the application to the **B-U585I-IOT02A** board using STM32 HAL and FreeRTOS.
+The BSP connects application code to the B-U585I-IOT02A board using STM32 HAL and
+FreeRTOS. It handles SPI, UART, and the SD card. Peripheral pins and settings come
+from STM32CubeMX.
 
-It handles communication with hardware peripherals such as SPI, UART, and the SD card. This keeps hardware-specific code separate from the application and provides a consistent way to access peripherals.
+| Folder or file | Purpose |
+| --- | --- |
+| `spi/` | SPI transfers and shared bus access |
+| `uart/uart_port.h`, `.c` | Buffered UART reception and blocking transmission |
+| `storage/sd_spi_port.h`, `.c` | SD card transfers over SPI |
+| `storage/sd_diskio.h`, `.c` | Connect FatFs to the SD driver |
+| `storage/sd_card.h` | SD card setup interface |
 
-## Project Structure
+## Object lifetime and startup
 
-| Path | Purpose |
-|---|---|
-| `spi/` | SPI communication and bus management |
-| `uart/uart_port.h`, `.c` | UART communication, interrupt-based RX, and synchronized TX |
-| `storage/sd_spi_port.hpp`, `.cpp` | SD card SPI communication |
-| `storage/sd_diskio.h`, `.cpp` | Connects the SD card driver to FatFs |
-| `storage/sd_card.h` | C interface for SD card initialization |
-
-## Using the BSP
-
-The BSP uses **STM32 HAL** for hardware communication and **FreeRTOS** for synchronization between tasks.
-
-Peripheral settings such as GPIO pins, clock speeds, and operating modes are configured in STM32CubeMX.
-
-### Initialization
-
-The normal startup order is:
-
-1. **CubeMX** initializes clocks, GPIO, and peripheral handles.
-2. **FreeRTOS kernel setup** runs.
-3. **`app_init()`** initializes BSP peripherals before the scheduler starts.
-4. **FreeRTOS tasks** start using the peripherals.
-
-SPI can also be initialized from a task before its first use. For example, the logger task initializes the SD card's SPI bus when setting up storage.
-
-Each peripheral should have one shared BSP object with a lifetime that lasts for the entire application.
+Keep one static BSP object per peripheral. Initialize it once, keep using the
+same HAL handle, and do not copy or change its fields directly.
 
 ```c
 static uart_port_t sensor_uart;
 ```
 
-Keep these objects static, initialize them only once, and don't copy or modify them directly after initialization.
+CubeMX sets up the hardware first. `app_init()` prepares the UART driver after
+kernel setup and before the scheduler starts. The reader task starts reception
+after the scheduler is running. SPI setup can also run from a task; the logger
+uses this when mounting the SD card.
 
-BSP peripheral drivers are written in C, but they can be used directly from C++ tasks. Their headers already support `extern "C"`, so no additional wrapper is needed.
+The drivers are written in C. Their headers support C++ callers through
+`extern "C"`. Use the BSP APIs for peripherals they manage, so their locks and
+state stay consistent.
 
-**Important rules:**
-- Use the BSP functions instead of calling HAL directly on a peripheral managed by the BSP.
-- Don't call task-only BSP functions from interrupts.
-- Don't initialize the same peripheral concurrently from multiple tasks.
-- Initialize each peripheral with its intended HAL handle. Reinitializing with the same handle is safe, but switching handles is not supported.
+## SPI
 
-## SPI Communication
+A normal SPI transaction uses three calls:
 
-The SPI driver in `spi/` manages data transfers and access to shared SPI buses.
+1. `spi_begin()` locks the bus and selects the device.
+2. `spi_transfer()` transfers bytes.
+3. `spi_end()` deselects the device and releases the bus.
 
-Multiple SPI devices can share a bus as long as each has its own chip-select (CS) pin.
-
-### SPI Transactions
-
-Use three functions for normal SPI communication:
-
-1. `spi_begin()` — Locks the bus and pulls the device's CS pin low.
-2. `spi_transfer()` — Sends and receives data.
-3. `spi_end()` — Raises CS and releases the bus.
-
-Example:
+Always call `spi_end()` after a successful `spi_begin()`, including when a
+transfer fails. The same task must begin and end the transaction on the same
+device.
 
 ```c
 if (spi_begin(&device, pdMS_TO_TICKS(20))) {
     bool ok = spi_transfer(&device, tx, rx, sizeof(tx), 50U);
-
-    // Always release the bus, even if the transfer fails.
     spi_end(&device);
 
     if (!ok) {
-        // Handle transfer error.
+        // Handle the transfer error.
     }
 }
 ```
 
-**Always call `spi_end()` after a successful `spi_begin()`, even when a transfer fails.**
+`spi_begin()` waits for the mutex in FreeRTOS ticks. `spi_transfer()` uses
+milliseconds for its transfer timeout. Use `pdMS_TO_TICKS()` when converting a
+wait time.
 
-The SPI driver uses a FreeRTOS mutex to prevent tasks from accessing the same bus at the same time. A transaction must begin and end in the same task, using the same device.
+The SD driver uses `spi_acquire()` and `spi_select()` because it sometimes needs
+clock cycles with chip-select high. Other devices should use the normal three
+calls. The BSP does not change the CubeMX SPI settings.
 
-The timeout values have different units:
-- `spi_begin()` uses FreeRTOS ticks for waiting on the mutex.
-- `spi_transfer()` uses milliseconds for the HAL transfer timeout.
+## UART
 
-Use `pdMS_TO_TICKS()` when converting milliseconds to FreeRTOS ticks.
+The UART driver supports USART1, USART3, and UART4. Initialize each port before the
+scheduler starts:
 
-### Shared Bus Access
-
-The SD card driver also uses `spi_acquire()` and `spi_select()`.
-
-Unlike a normal SPI transaction, an SD card sometimes needs extra clock cycles while CS is high. These functions allow the driver to keep the bus locked while controlling CS separately.
-
-Other SPI devices should normally use `spi_begin()`, `spi_transfer()`, and `spi_end()`.
-
-SPI settings, including clock speed and mode, come from STM32CubeMX. The BSP does not change them during transactions.
-
-## UART Communication
-
-The UART driver in `uart/` provides interrupt-based reception (RX) and blocking transmission (TX).
-
-It supports **USART1, USART3, and UART4**, with one BSP object per peripheral.
-
-### Initialization
-
-Initialize the UART port after CubeMX and kernel setup, before starting the scheduler.
-
-```cpp
-#include "uart/uart_port.h"
-#include "usart.h"
-
-static uart_port_t sensor_uart;
-
-// Inside app_init():
+```c
 bool ok = uart_port_init(&sensor_uart, &huart3);
-
-if (!ok) {
-    // Handle initialization failure.
-}
 ```
 
-Initialization prepares the UART driver and its FreeRTOS resources, but does not start receiving data.
+Initialization creates the driver's static RTOS objects. It does not start RX.
+From the reader task, call `uart_port_start_rx()` and check its return value.
 
-### Receiving Data
+### Receive data
 
-UART reception uses interrupts to collect incoming bytes in a **256-byte buffer**.
+Only one task may read a port. Interrupts queue up to 256 received bytes, each
+paired with a HAL tick. These entries use 2,048 bytes of storage plus queue control
+data. A full queue drops new input and preserves what is already queued.
 
-Start reception from the task responsible for reading UART data, after the scheduler has started.
+Use `uart_port_read()` for plain bytes. Use `uart_port_read_timed()` when reception
+time matters, as it does for GPS:
 
-```cpp
-if (!uart_port_start_rx(&sensor_uart)) {
-    // Handle RX startup failure.
-}
-
-uint8_t buffer[32];
-
-size_t count = uart_port_read(
-    &sensor_uart,
-    buffer,
-    sizeof(buffer),
-    pdMS_TO_TICKS(20)
-);
+```c
+uart_rx_byte_t received[16];
+size_t count = uart_port_read_timed(
+    &sensor_uart, received, 16U, pdMS_TO_TICKS(20));
 ```
 
-The driver automatically re-arms UART reception after each received byte and handles UART error recovery.
+Capacity counts entries. Only the first entry can wait; later entries are read
+without waiting. Reads may return fewer entries than requested. The driver returns
+bytes, not assembled protocol messages.
 
-Keep the following in mind:
+Check `uart_port_rx_status()` for dropped bytes, errors, and active RX state. The
+driver re-arms reception after each byte. If RX stops, the reader task can retry
+`uart_port_start_rx()`.
 
-- Only **one task should read** from a UART port.
-- Reads can return fewer bytes than requested.
-- The driver provides raw bytes, not complete protocol messages.
-- If the receive buffer fills up, new bytes are dropped rather than overwriting existing data.
-- Use `uart_port_rx_status()` to check dropped bytes and receive errors.
-- If reception becomes inactive, the reader task can call `uart_port_start_rx()` again.
+The CubeMX UART setup must provide:
 
-UART RX must have its interrupt enabled in STM32CubeMX, including its IRQ handler.
+- 8-bit data, no parity, and FIFO disabled.
+- An enabled UART IRQ and its handler.
+- A FreeRTOS-safe IRQ priority: 5 or numerically higher with the current config.
+- Priority grouping 4 and `USE_HAL_UART_REGISTER_CALLBACKS == 0U`.
 
-Because the interrupt uses FreeRTOS functions, its priority must be FreeRTOS-safe. With the current configuration, use **priority 5 or a numerically higher value**, with priority grouping 4.
+### Send data
 
-The driver expects an 8-bit, no-parity UART with FIFO disabled. These settings are configured in CubeMX.
+`uart_port_write()` locks the transmit mutex, sends the bytes, then releases it.
+`wait_ticks` limits the mutex wait in RTOS ticks; `timeout_ms` limits HAL's transfer
+in milliseconds. A failed transfer may have sent some bytes, so a blind retry can
+duplicate output.
 
-The build also requires `USE_HAL_UART_REGISTER_CALLBACKS == 0U`.
+Call UART read, write, and RX-start functions from a running task with interrupts
+enabled, outside a critical section.
 
-### Sending Data
+## SD card
 
-Use `uart_port_write()` to send data.
+The SD card uses SPI1 at 250 kHz with these connections:
 
-```cpp
-bool sent = uart_port_write(
-    &sensor_uart,
-    buffer,
-    count,
-    pdMS_TO_TICKS(20),
-    50U
-);
-```
-
-The UART driver uses a separate FreeRTOS mutex to prevent multiple tasks from transmitting at the same time.
-
-There are two timeouts:
-
-- `wait_ticks` — How long to wait for access to the UART transmitter.
-- `timeout_ms` — How long HAL can spend transmitting after access is granted.
-
-In the example, the task waits up to 20 ms for the mutex, then allows up to 50 ms for transmission.
-
-A failed transmission may still have sent some bytes. Avoid blindly retrying if doing so could duplicate data.
-
-UART read, write, and reception-start functions must be called from running FreeRTOS tasks, not from interrupts or critical sections.
-
-## SD Card
-
-The SD card uses **SPI1** to communicate with the STM32.
-
-### Wiring
-
-| Signal | STM32 Pin |
-|---|---|
-| SCK | PA5 |
-| MISO | PB4 |
-| MOSI | PG4 |
+| Signal | STM32 pin |
+| --- | --- |
+| SCK | PE13 (Arduino D13) |
+| MISO | PE14 (Arduino D12) |
+| MOSI | PE15 (Arduino D11) |
 | CS | PE12 |
 
-The SD card requires:
-- 3.3 V logic
-- A common ground with the STM32
-- A FAT32-formatted SD card
+Use 3.3 V logic, a common ground, and a FAT32-formatted card.
 
-SPI1 is configured to run at **250 kHz** and is dedicated to the SD card.
+SPI1 uses the 16 MHz HSI kernel clock divided by 64, 8-bit mode 0, MSB first,
+and software NSS. CS on PE12 (Arduino D10) is high before its output is enabled.
+Both SD initialization and recording run at 250 kHz. See the
+[board wiring guide](../config/board_wiring.md) for the other connector routes.
 
-### Storage Access
+**Only the logger task accesses the SD card.** It calls `storage_mount()` to set
+up the BSP and FatFs. Other tasks send records to the logger queue. See the
+[logging guide](../app/storage/storage_logging.md) for sync and shutdown, and the
+[library guide](../../lib/README.md) for third-party source files.
 
-The logger task initializes and mounts the SD card using `storage_mount()`.
+## Check and debug
 
-The BSP handles SPI communication and connects the SD card driver to FatFs.
+See [host tests](../../tests/README.md) for UART buffering, timestamp, and recovery
+checks. On the board, check SPI chip-select and lock release after errors, UART
+overflow and restart behavior, and task stack headroom.
 
-**Only the logger task should access the SD card.**
-
-Other tasks, such as sensor tasks, should send their data to the logger rather than accessing files directly. This keeps file operations in one place and avoids concurrent storage access.
-
-The SD card implementation is split into:
-
-| Location | Responsibility |
-|---|---|
-| `lib/sd_spi/` | SD card SPI protocol |
-| `app/storage/` | Storage initialization and mounting |
-| `app/logging/` | Writing log data to files |
-
-See the [library guide](../../lib/README.md) for SD card driver dependencies.
-
-## Testing and Debugging
-
-The BSP includes host-side tests for SPI ownership, UART buffering, error recovery, and timeouts.
-
-See [BSP host checks](../../tests/bsp/README.md) for instructions.
-
-Host tests verify driver behavior, but hardware timing and electrical communication still need to be checked on the board.
-
-When testing on hardware:
-
-1. **SPI:** Verify chip-select behavior and confirm the bus is released after a transfer error.
-2. **UART RX:** Send more than 256 bytes without reading and check the dropped-byte counter. Confirm reception continues afterward.
-3. **UART errors:** Check that reception recovers from overrun and other UART errors.
-4. **FreeRTOS:** Check interrupt load and task stack usage under normal and heavy traffic.
-
-A logic analyzer is useful for checking SPI signals and UART timing. Debugger breakpoints can interfere with interrupt-driven reception, so prefer counters or trace tools when investigating timing issues.
+A logic analyzer is useful for timing checks. Breakpoints can stop reception and
+cause overflows, so use status counters when checking continuous traffic.
