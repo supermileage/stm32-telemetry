@@ -137,6 +137,27 @@ void CAN_transmit(void *parameters){
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 }
+
+// Faults are prioritized from left to right, most significant bit to least significant
+// and numbered from 1 (highest) to 19 (lowest).  Please refer to notion for more info
+int parseFault(uint8_t data[]) {
+	int fault = 1;
+	for (int i = 1; i < 4; i++) {
+		uint8_t currentByte = data[i];
+
+		int bitCount = 8;
+		if (i == 3)
+			bitCount = 3;
+
+		for (int j = 0; j < bitCount; j++) {
+			if (currentByte & (1 << (bitCount - j - 1))) {
+				return fault > 5 ? fault + 2 : fault;
+			}
+			fault++;
+		}
+	}
+	return 0;
+}
 /* USER CODE END 0 */
 
 /**
@@ -984,7 +1005,8 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				if(status & 0x1) { printf("Discharge is enabled\n"); }
 				if(status & 0x2) { printf("Charge is enabled\n"); }
 
-				//TODO: fault
+				int fault = parseFault(RxData);
+				printf("Fault ID: %d\n", fault);
 				break;
 			case CAN_ORIONBMS_PACK:
 				printf("BMS pack\n");
