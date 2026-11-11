@@ -1,70 +1,66 @@
-# Shared sample clock
+# Sample clock
 
-Every sensor uses this clock to timestamp its measurements. A sample is one
-sensor measurement. The clock provides elapsed time for comparing samples and
-UTC for placing them on a real-world timeline.
+The sample clock gives each measurement an elapsed time and, once GPS sets the
+RTC, a UTC date and time. The RTC keeps running if GPS is disconnected.
 
 ## Capture a timestamp
 
-Call `sample_clock_now()` when the measurement becomes available:
+Call `sample_clock_now()` when a measurement is ready:
 
 ```c
 sample_timestamp_t timestamp = sample_clock_now();
 ```
 
-Keep the result with the sample as it passes through the logger queue.
-
 | Field | Meaning |
 | --- | --- |
 | `elapsed_ms` | 64-bit milliseconds since boot |
-| `utc_ms` | Milliseconds since 1970-01-01 UTC, or zero when unavailable |
-| `status` | Whether UTC is unsynchronized, GPS-based, or in holdover |
+| `utc` | RTC date and time, including milliseconds; use only when status is `SAMPLE_TIME_RTC` |
+| `status` | `SAMPLE_TIME_UNSYNCED` or `SAMPLE_TIME_RTC` |
 
-Use `status` to decide whether UTC is available. `SAMPLE_TIME_UNSYNCED` means there
-is no valid UTC value. A CSV row should leave UTC empty in that case.
+Keep the timestamp with the measurement through queueing and SD writes. Use
+`elapsed_ms` for ordering and intervals. The GNSS task timestamps measurements
+after decoding a complete RMC message.
 
-## How GPS sets UTC
+## Initialize from GPS
 
-The GPS parser calls `sample_clock_sync_utc()` with a pair of times: when the
-message arrived on the elapsed clock, and the UTC reported by GPS. Other samples
-use the time since that pair to estimate their UTC:
+The GNSS task calls `sample_clock_init_utc()` with a valid GPS calendar. Call it
+only from that task, after `MX_RTC_Init()`, with interrupts enabled: HAL setup
+can wait for hardware.
 
-```text
-sample UTC = GPS UTC + elapsed time since that GPS message
-```
+Timestamps stay `UNSYNCED` until setup succeeds. Failed attempts return false
+and can be retried. After success, later GPS messages leave the RTC alone.
+`sample_clock_utc_is_set()` reports whether setup succeeded during this boot.
+Each reboot needs GPS again, even if the RTC retained its calendar.
 
-Updates with future reception times, nonpositive UTC, or repeated or older time
-pairs are rejected. After 3 seconds without a new update, status changes from
-`SAMPLE_TIME_GPS` to `SAMPLE_TIME_HOLDOVER`. UTC continues from the elapsed clock
-until GPS returns.
+The RTC supports 2000 to 2099 and handles date and leap-year rollover. Invalid dates
+and times are rejected. See [GPS reception](../sensors/README.md#gps-reception)
+for parsing rules.
 
-GPS can correct UTC forward or backward. Elapsed time keeps increasing, and
-previously captured timestamps stay unchanged. Use elapsed time to order samples
-and measure intervals. See the [GNSS guide](../sensors/gnss_logging.md) for UART
-accuracy limits.
+## Timing details
 
-## Timestamp buffered input
+The board's 32.768 kHz LSE crystal drives the RTC. Prescalers 31/1023 give a
+1024 Hz subsecond counter. `HAL_RTCEx_SetSynchroShift()` sets the initial
+fractional second, rounded to that resolution; `HAL_RTC_SetTime()` alone does not.
 
-The UART driver saves a HAL tick with each byte. `sample_clock_from_tick()` uses
-that saved tick to recover the acquisition timestamp after buffering or task
-delays. The GNSS parser uses the first `$` byte's tick.
+Reads briefly mask interrupts to capture elapsed time and the RTC together, then
+restore the caller's interrupt mask. `HAL_RTC_GetTime()` is always followed by
+`HAL_RTC_GetDate()` to release the calendar shadow registers, even after a read
+error. These calls do not wait for hardware.
 
-The saved tick must be less than one 32-bit wrap old, about 49.7 days. A reception
-before the current GPS time pair is marked unsynchronized. An accepted RMC update
-also sets that message's own UTC timestamp.
+A failed or invalid RTC read makes that sample `UNSYNCED`. `RTC` means the clock
+was read successfully; it does not indicate a current GPS fix. There is no GPS
+timeout.
 
-## How elapsed time works
+Initial time includes receiver, UART, and task delays. There is no PPS alignment.
+Later drift depends on crystal tolerance and temperature, so measure it on the
+board. UTC comes directly from the RTC, without Unix time conversion or software
+interpolation.
 
-The clock extends the existing 32-bit HAL tick to 64 bits. TIM1 calls
-`sample_clock_tick()` after `HAL_IncTick()`, so wrap is handled even when sensors
-are idle. No new task or hardware timer is needed.
+## Elapsed time
 
-Short interrupt masks protect shared values on the 32-bit MCU. The clock can be
-read from tasks or interrupts, including before the scheduler starts.
+TIM1 calls `sample_clock_tick()` after `HAL_IncTick()` to track 32-bit tick wraps.
+No extra task is needed. Reads work from tasks or interrupts, including before
+the scheduler starts. Keep the HAL tick running while recording; the RTC runs
+independently.
 
-Elapsed time follows the HAL tick. Suspending that tick, or masking interrupts
-for too long, can stop it advancing. Keep the HAL tick running during recording.
-
-The logger queue carries the full timestamp. The current binary writer saves
-only its lower 32 elapsed-time bits; saving UTC to the card is part of the next
-CSV stage.
+See the [logging guide](../logging/README.md#gps-csv-format) for recorded fields.
