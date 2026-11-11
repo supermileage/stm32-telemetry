@@ -1,11 +1,23 @@
 # FatFs configuration
 
-FatFs handles reading and writing files on the SD card.
+FatFs provides the SD card filesystem. Edit its settings in [`ffconf.h`](ffconf.h).
+The source is in [`lib/fatfs/src`](../../../lib/fatfs/src), and
+[`sd_diskio.c`](../../bsp/storage/sd_diskio.c) connects it to the SD driver.
 
-- [`ffconf.h`](ffconf.h) contains the FatFs settings.
-- [`lib/fatfs/src`](../../../lib/fatfs/src) contains the FatFs source files.
-- [`sd_diskio.cpp`](../../bsp/storage/sd_diskio.cpp) connects FatFs to the SD card driver.
+Only the [logger task](../../app/logging/README.md) should call FatFs. Sensor
+tasks send records to the logger instead.
 
-Use `diskio.c` from `lib/fatfs/src`, not a copy from an SD driver or example. See the [library guide](../../../lib/README.md) for the full list of source files.
+| Setting | Value | Meaning |
+| --- | --- | --- |
+| `_FS_REENTRANT` | 0 | No locking between tasks |
+| `_FS_LOCK` | 2 | Track up to two open files or directories |
+| `_USE_LFN` | 0 | Names must fit the short 8.3 format |
+| `_FS_NORTC` | 1 | Use a fixed date for file metadata |
 
-**Only the logger task should call FatFs.** Since `_FS_REENTRANT` is disabled, FatFs is not safe to call from multiple tasks. Sensor tasks should send records through `logger.h` instead. Keep all new file operations in the logger task.
+`GPS.CSV` uses one open-file slot. Increase `_FS_LOCK` if adding sensors will
+leave more than two CSVs open. File dates are separate from the measurement
+timestamps saved inside each CSV.
+
+Build with the `diskio.c` in `lib/fatfs/src`. Adding another copy from an SD
+example causes duplicate definitions. See [libraries](../../../lib/README.md)
+for the source list.

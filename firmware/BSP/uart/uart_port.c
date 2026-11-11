@@ -11,7 +11,7 @@ typedef struct {
     uart_port_t *port;
 } uart_binding_t;
 
-/* Owners are published during serial startup and remain fixed for this boot. */
+/* UART bindings are set during startup and stay fixed until reboot. */
 static uart_binding_t bindings[] = {
     {&huart1, USART1_IRQn, NULL},
     {&huart3, USART3_IRQn, NULL},
@@ -214,8 +214,9 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *handle)
     uart_port_t *port = binding->port;
     ++port->rx_errors;
 
-    /* HAL clears the hardware error flags. Restart only if it ended RX;
-     * noise/framing can leave RX running. Count recovery as part of this error. */
+    /* HAL clears the hardware error flags. Restart reception only if HAL stopped
+     * it. Noise and framing errors can leave reception running. A failed restart
+     * counts as part of this error. */
     if (handle->RxState == HAL_UART_STATE_READY) {
         port->rx_active = HAL_UART_Receive_IT(handle, &port->rx_byte, 1U) == HAL_OK;
     }

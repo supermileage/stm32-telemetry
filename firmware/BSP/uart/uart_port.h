@@ -77,8 +77,8 @@ size_t uart_port_read_timed(uart_port_t *port, uart_rx_byte_t *destination,
                            size_t capacity, TickType_t timeout_ticks);
 
 // Send bytes with mutex protection.
-// wait_ticks limits mutex waiting; portMAX_DELAY waits indefinitely.
-// timeout_ms separately limits transmission; HAL_MAX_DELAY waits indefinitely.
+// wait_ticks limits the mutex wait. Use portMAX_DELAY to wait indefinitely.
+// timeout_ms limits transmission. Use HAL_MAX_DELAY to wait indefinitely.
 // Use zero to avoid waiting. A failed send may have transmitted some bytes.
 // Returns true if all bytes were sent.
 bool uart_port_write(uart_port_t *port, const uint8_t *data, uint16_t length,
