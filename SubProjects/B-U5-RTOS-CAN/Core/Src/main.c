@@ -26,6 +26,7 @@
 #include "task.h"
 
 #include <stdio.h>
+#include <inttypes.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,7 +36,20 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+//Orion BMS
+//TODO: pull from can_common repo
+#define BMS_ID_LOW 0x280
+#define BMS_ID_HIGH 0x31F
 
+#define CAN_ORIONBMS_STATUS     0x280
+#define CAN_ORIONBMS_PACK       0x281
+#define CAN_ORIONBMS_CELL       0x282
+#define CAN_ORIONBMS_TEMP       0x283
+
+#define BMS_SOC_SCALING_FACTOR 2.0f
+#define BMS_VOLTAGE_SCALING_FACTOR 10.0f
+#define BMS_CURRENT_SCALING_FACTOR 10.0f
+#define BMS_CELL_SCALING_FACTOR 1000.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -97,6 +111,10 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 int __io_putchar(char ch) {
 	HAL_UART_Transmit(&huart1, (uint8_t*) &ch, 1, 10);
 	return ch;
+}
+
+static inline uint16_t combine_u8_to_u16(uint8_t a, uint8_t b) {
+	return ((uint16_t) a << 8) | b;
 }
 
 void startup(void *parameters) {
@@ -372,9 +390,10 @@ static void MX_FDCAN1_Init(void)
 	FDCAN_FilterTypeDef filter_config;
 	filter_config.IdType = FDCAN_STANDARD_ID; //11 bit id
 	filter_config.FilterIndex = 0; //init the first filter
-	filter_config.FilterType = FDCAN_FILTER_MASK;
-	filter_config.FilterID1 = 0; //match ID = 0
-	filter_config.FilterID2 = 0; //don't mask any bit, accept every ID
+	//filter for all BMS data
+	filter_config.FilterType = FDCAN_FILTER_RANGE;
+	filter_config.FilterID1 = BMS_ID_LOW;
+	filter_config.FilterID2 = BMS_ID_HIGH;
 	filter_config.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
 
 	//TODO: check for errors, use error handler?
@@ -956,9 +975,72 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 	if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET){
 		HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &RxHeader, RxData);
 		printf("New packet received\n");
-		for(int i = 0; i < 8; i++){
-			printf("RxData[%d] = %d\n", i, RxData[i]);
+
+		switch(RxHeader.Identifier){
+			case CAN_ORIONBMS_STATUS:
+				printf("BMS status\n");
+
+				uint8_t status = RxData[0];
+				if(status & 0x1) { printf("Discharge is enabled\n"); }
+				if(status & 0x2) { printf("Charge is enabled\n"); }
+
+				//TODO: fault
+				break;
+			case CAN_ORIONBMS_PACK:
+				printf("BMS pack\n");
+
+				uint8_t soc_data = RxData[4];
+				float soc = soc_data / BMS_SOC_SCALING_FACTOR;
+				printf("State of charge: %f%%\n", soc);
+
+				uint16_t voltage_data = combine_u8_to_u16(RxData[0], RxData[1]);
+				float voltage = voltage_data / BMS_VOLTAGE_SCALING_FACTOR;
+				printf("Battery voltage: %f\n", voltage);
+
+				uint16_t current_data = combine_u8_to_u16(RxData[2], RxData[3]);
+				float current = current_data / BMS_CURRENT_SCALING_FACTOR;
+				printf("Battery current: %f\n", current);
+				break;
+			case CAN_ORIONBMS_CELL:
+				printf("BMS cell\n");
+
+				uint16_t voltage_min_data = combine_u8_to_u16(RxData[0], RxData[1]);
+				float voltage_min = voltage_min_data / BMS_CELL_SCALING_FACTOR;
+				printf("Cells' voltage min: %f\n", voltage_min);
+
+				uint16_t voltage_max_data = combine_u8_to_u16(RxData[2], RxData[3]);
+				float voltage_max = voltage_max_data / BMS_CELL_SCALING_FACTOR;
+				printf("Cells' voltage max: %f\n", voltage_max);
+
+				uint16_t voltage_avg_data = combine_u8_to_u16(RxData[4], RxData[5]);
+				float voltage_avg = voltage_avg_data / BMS_CELL_SCALING_FACTOR;
+				printf("Cells' voltage avg: %f\n", voltage_avg);
+
+				break;
+			case CAN_ORIONBMS_TEMP:
+				printf("BMS temp\n");
+
+				uint8_t battery_temp_min = RxData[0];
+				printf("Battery temperature min: %d\n", battery_temp_min);
+
+				uint8_t battery_temp_max = RxData[1];
+				printf("Battery temperature max: %d\n", battery_temp_max);
+
+				uint8_t battery_temp_avg = RxData[2];
+				printf("Battery temperature avg: %d\n", battery_temp_avg);
+
+				uint8_t bms_temp = RxData[3];
+				printf("BMS temperature: %d\n", bms_temp);
+
+				break;
+			default:
+				printf("Unknown ID %" PRIu32 "\n", RxHeader.Identifier);
+				break;
 		}
+
+//		for(int i = 0; i < 8; i++){
+//			printf("RxData[%d] = %d\n", i, RxData[i]);
+//		}
 
 	}
 }
