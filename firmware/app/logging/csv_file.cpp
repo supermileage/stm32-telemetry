@@ -1,5 +1,6 @@
 #include "csv_file.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 FRESULT CsvFile::open(const char *path, const char *header)
@@ -46,7 +47,7 @@ FRESULT CsvFile::append(const char *row)
         return error_;
     }
 
-    std::memcpy(buffer_ + used_, row, length);
+    std::copy_n(row, length, buffer_ + used_);
     used_ += static_cast<UINT>(length);
     buffer_[used_++] = '\n';
     dirty_ = true;
@@ -62,12 +63,13 @@ FRESULT CsvFile::flush()
     UINT written = 0U;
     error_ = f_write(&file_, buffer_, used_, &written);
     if (error_ == FR_OK && written != used_) {
-        /* FatFs can report a full card as a successful but short write. */
+        /** FatFs can return success after a partial write when the card is full. */
         error_ = FR_DENIED;
     }
     if (error_ == FR_OK) {
         used_ = 0U;
     }
+
     return error_;
 }
 
@@ -76,12 +78,14 @@ FRESULT CsvFile::sync()
     if (!open_) {
         return FR_INVALID_OBJECT;
     }
+
     if (flush() == FR_OK) {
         error_ = f_sync(&file_);
         if (error_ == FR_OK) {
             dirty_ = false;
         }
     }
+
     return error_;
 }
 
