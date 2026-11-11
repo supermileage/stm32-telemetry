@@ -1,33 +1,36 @@
-# Application Code
+# Application
 
-This folder contains the application startup, storage, logging, and sensor code.
+Sensor tasks collect and timestamp measurements, then send them to the logger.
+The logger saves one CSV per sensor on the SD card, such as
+`0:/LOGS/RUN00001/GPS.CSV`. GPS is the only sensor in use so far.
 
-Hardware setup stays in `Core/` and `BSP/`, while reusable drivers are in `lib/`.
+## Files and folders
 
-## Files
-
-| Path | Purpose |
+| File or folder | Purpose |
 | --- | --- |
-| `app.h`, `app.cpp` | Connect C startup code to the C++ application |
-| `storage/` | SD card setup and filesystem operations |
-| `logging/` | Log queue, binary file writing, and file rotation |
-| `sensors/` | Sensor data collection and encoding |
+| `app.h`, `app.cpp` | Start the tasks |
+| [sensors/](sensors/README.md) | Read sensors and prepare log records |
+| [time/](time/README.md) | Read elapsed time and the GPS-initialized RTC |
+| [logging/](logging/README.md) | Queue records and write CSV files |
+| [storage/](storage/README.md) | Mount and unmount the SD card |
 
 ## Startup
 
-`app_init()` runs after the RTOS and peripherals are initialized, but before the scheduler starts.
+`app_init()` creates the logger and GNSS tasks after peripheral setup and before
+the scheduler starts. The logger then mounts the card and opens the files while
+the GNSS task reads GPS data through USART3.
 
-1. `storage_start_task()` creates the storage task and logger queue.
-2. When the scheduler starts, the storage task calls `storage_mount()` to configure the SD card and mount the filesystem.
-3. The storage task opens the log file and handles all SD card operations.
+Only the logger task accesses the SD card. Other tasks send it records through
+a queue. See the [logging guide](logging/README.md) for saving and stopping.
 
-Storage errors are reported through logger status.
+## Writing application code
 
-## Sensor Logging
+Handwritten code in `app/` uses C++17 without exceptions or RTTI. Prefer plain
+measurement structs, static storage, and small classes that manage their own
+state. RTOS queues copy raw bytes, so their items must be trivially copyable.
+Keep owning pointers, strings, and objects that need construction or destruction
+out of queues.
 
-Each sensor encodes its data before sending it to the logger. The logger queues the records and writes them to a binary file with framing and CRC checks.
-
-Source IDs are defined in `sensors/sources.h`. A PC decoder for converting binary
-logs to CSV is not included yet.
-
-See [sensor payloads](sensors/README.md) for the IMU format and a logging example.
+Generated code, HAL, FreeRTOS, third-party libraries, and the BSP remain C.
+`app_init()`, the sample clock, and the logger task API have C linkage so C code
+can call them. Internal application APIs use C++ linkage.

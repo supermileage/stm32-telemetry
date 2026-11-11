@@ -1,14 +1,11 @@
-/**
- * @file
- * @brief Application setup called before the RTOS scheduler starts.
- */
 #include "app.h"
-/* Prevent C++ name mangling */
-extern "C" {
-#include "storage/storage_task.h"
-}
+#include "main.h"
+#include "usart.h"
+#include "logging/logger.h"
+#include "sensors/gnss_task.h"
 
-extern "C" void app_init(void)
+void app_init(void)
 {
-    storage_start_task();
+    logger_start_task();
+    gnss_start_task(&huart3);
 }

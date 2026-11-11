@@ -1,29 +1,39 @@
-/**
- * @file
- * @brief Sample format shared by telemetry producers and the logger queue.
- */
+/** Measurements copied from sensor tasks into the logger queue. */
 #ifndef LOG_RECORD_H
 #define LOG_RECORD_H
 
-#include <stdint.h>
+#include "time/sample_clock.h"
+#include "sensors/gnss_record.h"
 
-/** Maximum number of payload bytes in one record. */
-#define LOG_PAYLOAD_MAX 64U
+/** Identify which data member is filled. The IMU source is reserved for later. */
+typedef enum {
+    LOG_SOURCE_IMU = 1,
+    LOG_SOURCE_GPS = 2
+} sensor_source_t;
 
 /**
- * One telemetry sample, copied when submitted to the logger.
- * Initialize the whole record. Producers choose source IDs and encode their
- * payload fields explicitly, including byte order; this struct is not a disk format.
+ * One sensor measurement and its capture time. Zero-initialize the record, then
+ * set the source and its matching data member. The queue copies this struct.
+ * CSV formatters write individual fields rather than the struct's raw bytes.
  */
 typedef struct {
-    /** Milliseconds since boot; wraps to zero after UINT32_MAX. */
-    uint32_t timestamp_ms;
-    /** Application-assigned ID identifying the payload format. */
-    uint16_t source;
-    /** Number of payload bytes to write, from 0 to LOG_PAYLOAD_MAX. */
-    uint16_t length;
-    /** Encoded sample; bytes after length are not written. */
-    uint8_t payload[LOG_PAYLOAD_MAX];
+    /** Capture time supplied by the sensor task. */
+    sample_timestamp_t timestamp;
+
+    sensor_source_t source;
+
+    union {
+        gnss_measurement_t gps;
+
+        /** Add the IMU measurement here when its task is implemented. */
+    } data;
 } log_record_t;
+
+#ifdef __cplusplus
+#include <type_traits>
+
+static_assert(std::is_trivially_copyable_v<log_record_t>,
+              "FreeRTOS queues copy records as bytes");
+#endif
 
 #endif

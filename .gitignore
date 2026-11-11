@@ -18,9 +18,12 @@ __pycache__/
 
 # IDE specific files (Eclipse / STM32CubeIDE)
 .metadata/
+# Ignore local Eclipse settings; preserve shared project preferences
 .settings/
 !firmware/.settings/
-!firmware/.settings/*.prefs
+/firmware/.settings/*
+!/firmware/.settings/org.eclipse.core.resources.prefs
+!/firmware/.settings/stm32cubeide.project.prefs
 *.launch
 *.ioc.bak
 **/Core/Inc/Backup/
@@ -37,4 +40,3 @@ desktop.ini
 
 # Others
 .vscode/
-tests/
