@@ -75,6 +75,7 @@
 									<listOptionValue builtIn="false" value="../bsp"/>
 									<listOptionValue builtIn="false" value="../bsp/storage"/>
 									<listOptionValue builtIn="false" value="../bsp/i2c"/>
+									<listOptionValue builtIn="false" value="../app/sensors"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.516764885" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
