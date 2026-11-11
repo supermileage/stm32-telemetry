@@ -8,7 +8,7 @@
 #ifndef APP_I2C_H_
 #define APP_I2C_H_
 
-#include "stm32u5xx_hal.h"
+#include "stm32u5xx_hal.h" //swap for current MCU, used for I2C_HandleTypeDef
 #include <stdint.h>
 
 #define MAX_I2C_ATTEMPTS 3

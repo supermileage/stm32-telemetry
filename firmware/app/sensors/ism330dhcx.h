@@ -9,7 +9,6 @@
 #define APP_DRIVERS_ISM330DHCX_H_
 
 #include <stdint.h>
-#include "stm32u5xx_hal.h"
 #include "i2c_interface.h"
 
 #define IMU_ADDRESS 0b11010110

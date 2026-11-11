@@ -6,7 +6,6 @@
  */
 
 #include "ism330dhcx.h"
-#include "stm32u5xx_hal.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "i2c.h"
