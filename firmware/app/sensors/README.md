@@ -1,57 +1,85 @@
-# Sensor records
+# Sensors
 
-Sensor tasks read measurements and send them to the logger. The logger copies
-records into a queue and writes them to the SD card.
-
-The GNSS task is currently connected to the application. The IMU has a reserved
-source ID, but its task has not been added to the main firmware yet.
+Sensor tasks timestamp measurements and send them to the logger queue. GPS is
+working; the IMU has a reserved source ID but no task or measurement type yet.
 
 ## Submit a measurement
 
-1. Create a zero-initialized `log_record_t`.
-2. Capture its timestamp when the measurement becomes available.
-3. Set the source ID from `sources.h`.
-4. Encode the measurement into `payload` and set `length`.
-5. Call `logger_submit(&record)`.
+Read the [shared clock](../time/README.md) when a measurement is ready, then set
+the source and matching data member:
 
-The payload can hold up to `LOG_PAYLOAD_MAX` bytes, currently 64. A successful
-submission copies the whole record, so the sensor can reuse its local record.
-
-`logger_submit()` does not wait for space. It returns `false` if the queue is
-full, the logger is unavailable, or the record is invalid. Check this return value
-and track rejected samples in the sensor's status.
-
-## Capture the timestamp
-
-Use the [shared clock](../time/README.md) when reading a local sensor:
-
-```c
-log_record_t record = {0};
+```cpp
+log_record_t record{};
 record.timestamp = sample_clock_now();
+record.source = LOG_SOURCE_GPS;
+record.data.gps = measurement;
+bool accepted = logger_submit(&record);
 ```
 
-Keep that timestamp with the measurement. Waiting for the logger or SD card must
-not change the recorded acquisition time.
+The queue copies the record, so you can reuse it immediately. Submission does
+not wait for space: check `accepted` and count rejected samples. See
+[logging](../logging/README.md) for queue behavior and shutdown.
 
-For buffered input, use the time saved when the data arrived. The GNSS parser uses
-`sample_clock_from_tick()` with the receive tick of the sentence's first `$` byte.
-See the [GNSS guide](gnss_logging.md) for details.
+## GPS reception
 
-## Define the payload
+The GNSS task reads the SAM-M8Q through USART3 at 9600 baud, with 8 data bits,
+no parity, and one stop bit. It must be the port's only reader.
 
-Each source ID identifies a payload format. Document the field order, field sizes,
-byte order, and units in the sensor module. Use clear units such as `m/s^2`,
-`deg/s`, and `degC`.
+`gnss_task.cpp` passes queued UART bytes to `GnssParser`, which checks checksums
+with minmea and decodes RMC sentences. The task uses the first valid GPS calendar
+to initialize the RTC, timestamps the decoded measurement, and submits it to the
+logger. Failed RTC initialization is retried on a later valid message, even if
+logging is unavailable.
 
-Encode fields explicitly. Copying a C struct directly into the payload can include
-padding and make files harder to decode. If a format changes incompatibly, give
-it a new source ID.
+The parser has no hardware, RTOS, logger, or clock calls. Measurement types are
+in `gnss_record.h`; parser results and `gnss_sample_t` are in `gnss_parser.hpp`.
 
-## What reaches the SD card
+RTC initialization requires status A and a valid date and time. RMC years 00 to
+79 mean 2000 to 2079; 80 to 99 mean 1980 to 1999 and are outside the RTC's range.
+Fractional seconds are truncated to milliseconds. Missing fields, impossible
+dates, and leap seconds cannot set the clock.
 
-Queued records contain elapsed time, UTC, and synchronization status. The current
-binary writer saves only the lower 32 bits of elapsed time. UTC and its status
-will be saved when the CSV logger is connected.
+GPS timestamps mark when decoding finishes, including UART buffering and task
+delays. See the [clock guide](../time/README.md) for timing limits and the
+[CSV format](../logging/README.md#gps-csv-format) for saved columns.
 
-See [storage and logging](../storage/storage_logging.md) for the queue and stop
-API, and the [binary format](../logging/logging_format.md) for the file layout.
+## Reception errors and status
+
+The parser rejects bad checksums, malformed or damaged sentences, and lines too
+long for its buffer. A new `$` starts a fresh sentence. UART errors or dropped
+bytes cause the task to discard the partial sentence.
+
+`gnss_get_status()` reports received and rejected records, parser errors, dropped
+bytes, UART errors, and reception state. Its clock counters are:
+
+- `rtc_initializations`: successful RTC setup, at most once per boot.
+- `rtc_init_failures`: failed RTC setup attempts.
+- `invalid_utc_sentences`: RMC messages without a usable GPS calendar.
+
+## Add a sensor
+
+1. Define a plain measurement struct. Document units and missing or invalid values.
+2. Add a source tag and matching `data` union member in `logging/record.h`.
+3. Add a formatter and header in `logging/csv_format.*`. Use
+   `csv_format_timestamp()` to start each row and put units in column names.
+4. Add a static `CsvFile` and an entry in `logger.cpp`'s `sensor_files` table.
+5. Check [FatFs's `_FS_LOCK`](../../config/fatfs/README.md). It allows two open
+   files; each CSV needs one slot.
+
+The source must match the filled union member; the logger cannot check this for
+you. Records must be trivially copyable, which is checked at compile time. CSV
+output does not need packed structs or byte-order conversion.
+
+## Memory and board checks
+
+On ARM, the UART queue uses 2048 bytes plus control data, the parser uses 132
+bytes, and the GNSS stack is 2 KiB. Timestamps are 24 bytes and log records are
+56 bytes. Recheck sizes when adding fields.
+
+- Check that GPS sets the RTC once, the clock keeps running without GPS, and
+  reconnecting GPS does not reset it.
+- Measure RTC drift over the expected recording duration.
+- Watch dropped bytes, rejected records, RTC failures, and stack headroom with
+  `uxTaskGetStackHighWaterMark()`.
+
+Use a logic analyzer for UART timing. Breakpoints can interrupt reception.

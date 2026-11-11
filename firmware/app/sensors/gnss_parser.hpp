@@ -1,12 +1,29 @@
-// Build GPS sentences from incoming UART bytes.
+/** Assemble GPS sentences from UART bytes and decode their measurements. */
 #ifndef GNSS_PARSER_HPP
 #define GNSS_PARSER_HPP
 
-#include "gnss_parser.h"
+#include "gnss_record.h"
+#include "time/sample_clock.h"
 
 #include <cstddef>
 #include <cstdint>
 
+/** Result of feeding one byte into the parser. */
+typedef enum {
+    GNSS_PARSE_NONE,
+    GNSS_PARSE_RECORD,
+    GNSS_PARSE_INVALID,
+    GNSS_PARSE_OVERLONG
+} gnss_parse_result_t;
+
+/** Decoded measurement and optional UTC. The GNSS task decides how to use them. */
+typedef struct {
+    gnss_measurement_t measurement;
+    bool utc_valid;
+    sample_calendar_t utc;
+} gnss_sample_t;
+
+/** Own one sentence buffer without calling the clock, RTOS, or logger. */
 class GnssParser {
 public:
     static constexpr std::size_t LineCapacity = 128U;
@@ -15,21 +32,20 @@ public:
     GnssParser(const GnssParser &) = delete;
     GnssParser &operator=(const GnssParser &) = delete;
 
-    // Add one received byte. GNSS_PARSE_RECORD means out holds a new sample.
-    gnss_parse_result_t feed(uint8_t byte, uint32_t tick_ms, log_record_t &out);
+    /**
+     * Feed one received byte. A complete RMC sentence returns GNSS_PARSE_RECORD
+     * and fills out. Every other result leaves out unchanged.
+     */
+    gnss_parse_result_t feed(uint8_t byte, gnss_sample_t &out);
 
-    // Discard the partial sentence and keep the counters.
+    /** Discard a partial sentence and wait for the next '$'. */
     void reset();
 
-    gnss_parser_stats_t stats() const { return stats_; }
-
 private:
-    gnss_parse_result_t decode_sentence(log_record_t &out);
+    gnss_parse_result_t decode_sentence(gnss_sample_t &out);
 
     char line_[LineCapacity]{};
     std::size_t length_{};
-    sample_timestamp_t acquired_{};
-    gnss_parser_stats_t stats_{};
 };
 
 #endif
