@@ -1,6 +1,8 @@
 Project to get CAN bus working for BMS, make a CAN interface. Starting with internal loop mode to just test code
 
-CAN transceiver to be used: MCP2561
+CAN transceiver to be used: MCP2562
+- Vio to 3.3V/ voltage for data signals to board
+- Vdd to 5V to be used for CAN bus signals
 
 - Using MSIS for CAN clock as there is no HSE by default on the board
 	- Using auto calibration to get clock precise enough for CAN, should be 0.25% accuracy
