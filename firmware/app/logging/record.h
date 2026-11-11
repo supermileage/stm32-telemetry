@@ -4,11 +4,12 @@
 
 #include "time/sample_clock.h"
 #include "sensors/gnss_record.h"
+#include "sensors/ism330dhcx.h"
 
 /** Identify which data member is filled. The IMU source is reserved for later. */
 typedef enum {
-    LOG_SOURCE_IMU = 1,
-    LOG_SOURCE_GPS = 2
+    LOG_SOURCE_IMU,
+    LOG_SOURCE_GPS
 } sensor_source_t;
 
 /**
@@ -24,8 +25,7 @@ typedef struct {
 
     union {
         gnss_measurement_t gps;
-
-        /** Add the IMU measurement here when its task is implemented. */
+        imu_data_t imu;
     } data;
 } log_record_t;
 

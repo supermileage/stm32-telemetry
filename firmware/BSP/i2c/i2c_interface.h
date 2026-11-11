@@ -8,6 +8,10 @@
 #ifndef APP_I2C_H_
 #define APP_I2C_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stm32u5xx_hal.h" //swap for current MCU, used for I2C_HandleTypeDef
 #include <stdint.h>
 
@@ -32,5 +36,9 @@ extern i2c_bus_t i2c2_bus;
 
 HAL_StatusTypeDef i2c_read(i2c_bus_t *i2c_bus, uint16_t device_address, uint8_t register_address, uint8_t *data, uint16_t length);
 HAL_StatusTypeDef i2c_write(i2c_bus_t *i2c_bus, uint16_t device_address, uint8_t register_address, const uint8_t *data, uint16_t length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* APP_I2C_H_ */

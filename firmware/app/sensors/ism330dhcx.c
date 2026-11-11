@@ -13,6 +13,8 @@
 #include "i2c_interface.h"
 #include "util.h"
 
+#include "logging/logger.h"
+
 //use int32_t for gyroscope, 16 bits maxes out at 57 degrees per second
 static void decode_xyz(const uint8_t *data, double scale, xyz_t *out) {
 	out->x = (int16_t) combine_u8_to_u16(data[1], data[0]) * scale;
@@ -123,6 +125,12 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 			}
 			data.type = tag;
 			data.timeslot = timeslot;
+
+			log_record_t record;
+			record.timestamp = sample_clock_now();
+			record.source = LOG_SOURCE_IMU;
+			record.data.imu = data;
+			bool accepted = logger_submit(&record);
 			//log_write(&data);
 
 		}

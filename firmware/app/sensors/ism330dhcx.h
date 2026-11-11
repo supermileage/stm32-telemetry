@@ -8,6 +8,10 @@
 #ifndef APP_DRIVERS_ISM330DHCX_H_
 #define APP_DRIVERS_ISM330DHCX_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "i2c_interface.h"
 
@@ -55,5 +59,8 @@ void IMU_init(imu_t *imu);
 uint16_t IMU_drain_fifo(imu_t *imu);
 void IMU_log_clock_pair(imu_t *imu);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* APP_DRIVERS_ISM330DHCX_H_ */
