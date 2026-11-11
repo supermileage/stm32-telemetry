@@ -14,15 +14,6 @@
 
 
 //add one for each used I2C bus
-extern I2C_HandleTypeDef hi2c1;
-i2c_bus_t i2c1_bus = {
-		&hi2c1,
-		I2C1_SCL_GPIO_Port,
-		I2C1_SCL_Pin,
-		I2C1_SDA_GPIO_Port,
-		I2C1_SDA_Pin
-};
-
 extern I2C_HandleTypeDef hi2c2;
 i2c_bus_t i2c2_bus = {
 		&hi2c2,

@@ -28,7 +28,6 @@ typedef enum {
 } i2c_direction_t;
 
 //add one for each used I2C bus
-extern i2c_bus_t i2c1_bus;
 extern i2c_bus_t i2c2_bus;
 
 HAL_StatusTypeDef i2c_read(i2c_bus_t *i2c_bus, uint16_t device_address, uint8_t register_address, uint8_t *data, uint16_t length);

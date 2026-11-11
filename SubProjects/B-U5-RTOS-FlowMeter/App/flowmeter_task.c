@@ -39,6 +39,9 @@ void FlowMeter_task(void *parameters) {
 		printf("Current is %fA\r\n", current_a);
 
 		float voltage_shunt_v = INA228_read_voltage_shunt(&ina228);
-		printf("Voltage is %fV\r\n", voltage_shunt_v);
+		printf("Voltage (shunt) is %fV\r\n", voltage_shunt_v);
+
+		float voltage_bus_v = INA228_read_voltage_bus(&ina228);
+		printf("Voltage (bus) is %fV\r\n", voltage_bus_v);
 	}
 }

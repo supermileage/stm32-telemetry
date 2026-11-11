@@ -15,10 +15,12 @@
 #define INA228_ADDRESS 0x40 << 1
 
 // INA228 register map (8-bit register addresses)
-#define INA228_REG_CONFIG        0x00
-#define INA228_REG_ADC_CONFIG    0x01
-#define INA228_REG_SHUNT_CAL     0x02
-#define INA228_REG_CURRENT       0x07
+#define INA228_REG_CONFIG       	0x00
+#define INA228_REG_ADC_CONFIG   	0x01
+#define INA228_REG_SHUNT_CAL    	0x02
+#define INA228_REG_VOLTAGE_SHUNT	0x04
+#define INA228_REG_VOTLAGE_BUS		0x05
+#define INA228_REG_CURRENT      	0x07
 
 
 typedef struct{
@@ -42,5 +44,6 @@ void INA228_init(ina228_t *ina228);
 //negative value = error
 float INA228_read_current(ina228_t *ina228);
 float INA228_read_voltage_shunt(ina228_t *ina228);
+float INA228_read_voltage_bus(ina228_t *ina228);
 
 #endif /* DRIVERS_INA228_H_ */

@@ -62,31 +62,31 @@ void INA228_init(ina228_t *ina228){
 	INA228_setup(ina228);
 }
 
-//reads current in amps
 //negative value = error
 //TODO: better way to signal error
+static float read_value(ina228_t *ina228, uint8_t register_address, float conversion_factor){
+	uint8_t raw[3];
+	if(i2c_read(ina228->i2c_bus, INA228_ADDRESS, register_address, raw, 3) != HAL_OK) { return -1.0f; }
+	uint32_t combined = combine_u8_to_u32(0x00, raw[0], raw[1], raw[2]);
+	//combined is 20-bit two's complement in bits [23:4]
+	combined >>= 4;
+
+	int32_t value = sign_extend_20_to_32(combined);
+
+	return (float) value * conversion_factor;
+}
+
+//reads current in amps
 float INA228_read_current(ina228_t *ina228) {
-	uint8_t current_raw[3];
-	if(i2c_read(ina228->i2c_bus, INA228_ADDRESS, INA228_REG_CURRENT, current_raw, 3) != HAL_OK) { return -1.0f; }
-	uint32_t current_combined = combine_u8_to_u32(0x00, current_raw[0], current_raw[1], current_raw[2]);
-	// CURRENT is 20-bit two's complement in bits [23:4]
-	current_combined >>= 4;
-
-	int32_t current = sign_extend_20_to_32(current_combined);
-
-	return (float) current * ina228->current_lsb;
+	return read_value(ina228, INA228_REG_CURRENT, ina228->current_lsb);
 }
 
 float INA228_read_voltage_shunt(ina228_t *ina228) {
-	uint8_t voltage_raw[3];
-	if(i2c_read(ina228->i2c_bus, INA228_ADDRESS, 0x04, voltage_raw, 3) != HAL_OK) { return -1.0f; }
-	uint32_t voltage_combined = combine_u8_to_u32(0x00, voltage_raw[0], voltage_raw[1], voltage_raw[2]);
-	// CURRENT is 20-bit two's complement in bits [23:4]
-	voltage_combined >>= 4;
+	return read_value(ina228, INA228_REG_VOLTAGE_SHUNT, 312.5e-9f);
+}
 
-	int32_t current = sign_extend_20_to_32(voltage_combined);
-
-	return (float) current * 312.5e-9f;
+float INA228_read_voltage_bus(ina228_t *ina228) {
+	return read_value(ina228, INA228_REG_VOTLAGE_BUS, 195.3125e-6f);
 }
 
 
