@@ -5,7 +5,7 @@
  *      Author: Faysal
  */
 
-#include "i2c.h"
+#include "i2c_interface.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
