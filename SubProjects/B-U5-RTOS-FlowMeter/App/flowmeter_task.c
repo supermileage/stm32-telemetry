@@ -17,7 +17,7 @@ void FlowMeter_task(void *parameters) {
 
 	//TODO: check max current based on shunt
 	ina228_t ina228 = {
-			.i2c_bus = &i2c1_bus,
+			.i2c_bus = &i2c2_bus,
 			.i2c_errors = 0,
 			.shunt_ohms = 0.005f,
 			.max_current_a = 30.0f,
