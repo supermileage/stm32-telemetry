@@ -50,39 +50,8 @@ int csv_format_timestamp(const sample_timestamp_t *timestamp, char *out, size_t 
         status = "RTC";
     }
 
-    int length = snprintf(out, capacity, "%s,%s,%s,", elapsed, utc, status);
+    int length = snprintf(out, capacity, "%s,%s,%s", elapsed, utc, status);
     return length >= 0 && (size_t)length < capacity ? length : -1;
-}
-
-static void format_coordinate(int32_t value, int32_t scale, char out[24])
-{
-    if (scale <= 0) {
-        out[0] = '\0';
-        return;
-    }
-
-    int64_t magnitude = value < 0 ? -(int64_t)value : value;
-    int64_t degrees = magnitude / (100LL * scale);
-    int64_t minutes = magnitude % (100LL * scale);
-    int64_t converted = degrees * 1000000 + minutes * 1000000 / (60LL * scale);
-
-    (void)snprintf(out, 24U, "%s%lu.%06lu", value < 0 ? "-" : "",
-                   (unsigned long)(converted / 1000000), (unsigned long)(converted % 1000000));
-}
-
-static void format_speed(int32_t value, int32_t scale, char out[24])
-{
-    if (scale <= 0) {
-        out[0] = '\0';
-        return;
-    }
-
-    /** One knot is exactly 463/900 metres per second. */
-    int64_t magnitude = value < 0 ? -(int64_t)value : value;
-    int64_t converted = magnitude * 463000 / (900LL * scale);
-
-    (void)snprintf(out, 24U, "%s%lu.%03lu", value < 0 ? "-" : "",
-                   (unsigned long)(converted / 1000), (unsigned long)(converted % 1000));
 }
 
 int gnss_csv_format(const log_record_t *record, char *out, size_t capacity)
@@ -97,18 +66,12 @@ int gnss_csv_format(const log_record_t *record, char *out, size_t capacity)
     }
 
     const gnss_measurement_t &measurement = record->data.gps;
-    bool fix_valid = measurement.fix_valid;
-    char latitude[24] = "";
-    char longitude[24] = "";
-    char speed[24] = "";
-
-    if (fix_valid) {
-        format_coordinate(measurement.latitude.value, measurement.latitude.scale, latitude);
-        format_coordinate(measurement.longitude.value, measurement.longitude.scale, longitude);
-        format_speed(measurement.speed.value, measurement.speed.scale, speed);
-    }
-
-    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%u,%s,%s,%s", fix_valid ? 1U : 0U, latitude, longitude, speed);
+    int length = snprintf(out + prefix, capacity - (size_t)prefix,
+        ",%u,%u,%ld,%ld,%ld,%ld,%u",
+        measurement.fix_valid ? 1U : 0U, measurement.speed_valid ? 1U : 0U,
+        (long)measurement.latitude_udeg, (long)measurement.longitude_udeg,
+        (long)measurement.speed_mm_s, (long)measurement.course_mdeg,
+        measurement.course_valid ? 1U : 0U);
     return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
 }
 
@@ -145,6 +108,24 @@ int imu_csv_format(const log_record_t *record, char *out, size_t capacity){
     int32_t y = data.data.y;
     int32_t z = data.data.z;
 
-    int length = snprintf(out + prefix, capacity - (size_t)prefix, "%lu, %f, %s, %d, %ld, %ld, %ld", ticks, time, type, timeslot, x, y, z);
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%lu, %f, %s, %d, %ld, %ld, %ld", (unsigned long)ticks, time, type, timeslot, (long)x, (long)y, (long)z);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}
+
+int fcc_csv_format(const log_record_t *record, char *out, size_t capacity)
+{
+    if (record == nullptr || record->source != LOG_SOURCE_FCC) {
+        return -1;
+    }
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+    const auto &measurement = record->data.fcc;
+    int length = snprintf(out + prefix, capacity - (size_t)prefix,
+        ",%u,%ld,%ld,%ld,%ld,%ld,%ld", (unsigned)measurement.error_flag,
+        (long)measurement.ambient_temperature_mc, (long)measurement.fuel_cell_voltage_mv,
+        (long)measurement.hydrogen_leak_voltage_mv, (long)measurement.fuel_cell_temperature_mc,
+        (long)measurement.fuel_cell_current_ma, (long)measurement.battery_voltage_mv);
     return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
 }

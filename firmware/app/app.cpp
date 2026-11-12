@@ -2,7 +2,7 @@
 #include "main.h"
 #include "usart.h"
 #include "logging/logger.h"
-#include "sensors/gnss_task.h"
+#include "sensors/gnss/gnss_task.h"
 #include "sensors/imu_task.h"
 
 void app_init(void) {

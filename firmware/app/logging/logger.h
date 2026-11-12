@@ -40,9 +40,7 @@ typedef enum {
 } logger_state_t;
 
 /**
- * Recording progress since boot. The 32-bit counters wrap when they fill up.
- * Compare accepted_records with synced_records to see how much is saved.
- * Records lost after queueing are not included in dropped_records.
+ * Recording progress since boot.
  */
 typedef struct {
     logger_state_t state;
@@ -81,24 +79,16 @@ typedef struct {
 void logger_start_task(void);
 
 /**
- * Copy a record into the queue without waiting for space. Call from a task.
- * Set a registered source and fill its matching data member before submitting.
- * The caller can reuse the record as soon as this returns.
- * Returns false for invalid input, a full queue, or an unavailable logger.
- * A successful submission can still be lost if a later SD operation fails.
+ * Copy a record into the message queue
  */
 bool logger_submit(const log_record_t *record);
 
 /**
- * Queue a stop after the records already waiting. Call from a task.
- * Once accepted, new records are rejected. Retry if the queue is full.
- * Wait for LOGGER_STOPPED before removing the card. LOGGER_FAILED means that
- * saving or cleanup failed. Reboot to start another recording.
- * Returns false if the request cannot be queued.
+ * Queue a stop after the records already waiting.
  */
 bool logger_request_stop(void);
 
-/** Copy recording progress from a task. A null output pointer is ignored. */
+/** Copy recording progress from a task. */
 void logger_get_status(logger_status_t *out);
 
 #ifdef __cplusplus

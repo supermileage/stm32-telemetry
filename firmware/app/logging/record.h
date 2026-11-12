@@ -3,13 +3,15 @@
 #define LOG_RECORD_H
 
 #include "time/sample_clock.h"
-#include "sensors/gnss_record.h"
+#include "sensors/gnss/gnss_record.h"
+#include "sensors/fcc/fcc_record.h"
 #include "sensors/ism330dhcx.h"
 
-/** Identify which data member is filled. The IMU source is reserved for later. */
+/** Identify which data member is filled. */
 typedef enum {
     LOG_SOURCE_IMU,
-    LOG_SOURCE_GPS
+    LOG_SOURCE_GPS,
+    LOG_SOURCE_FCC
 } sensor_source_t;
 
 /**
@@ -26,6 +28,7 @@ typedef struct {
     union {
         gnss_measurement_t gps;
         imu_data_t imu;
+        fcc_measurement_t fcc;
     } data;
 } log_record_t;
 

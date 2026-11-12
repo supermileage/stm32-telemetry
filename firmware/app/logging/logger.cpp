@@ -35,11 +35,13 @@ struct SensorLog {
 
 CsvFile gps_file;
 CsvFile imu_file;
+CsvFile fcc_file;
 
 /** Each sensor owns a writable file buffer. This table stays read-only. */
 const SensorLog sensor_files[] = {
     {LOG_SOURCE_GPS, "GPS.CSV", GNSS_CSV_HEADER, gnss_csv_format, gps_file},
-    {LOG_SOURCE_IMU, "IMU.CSV", IMU_CSV_HEADER, imu_csv_format, imu_file}
+    {LOG_SOURCE_IMU, "IMU.CSV", IMU_CSV_HEADER, imu_csv_format, imu_file},
+    {LOG_SOURCE_FCC, "FCC.CSV", FCC_CSV_HEADER, fcc_csv_format, fcc_file}
 };
 
 char session_path[LOGGER_PATH_SIZE];
