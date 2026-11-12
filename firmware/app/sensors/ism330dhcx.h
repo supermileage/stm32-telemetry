@@ -22,12 +22,6 @@ extern "C" {
 
 #define STARTUP_MS 35
 
-
-#define SCL_PIN GPIO_PIN_4
-#define SCL_PORT GPIOH
-#define SDA_PIN GPIO_PIN_5
-#define SDA_PORT GPIOH
-
 typedef struct{
 	i2c_bus_t *i2c_bus;
 	unsigned int i2c_errors;
