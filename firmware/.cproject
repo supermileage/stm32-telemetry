@@ -77,6 +77,7 @@
 									<listOptionValue builtIn="false" value="../bsp/storage"/>
 									<listOptionValue builtIn="false" value="../bsp/i2c"/>
 									<listOptionValue builtIn="false" value="../app/sensors"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Lib/can-common/src}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.516764885" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>

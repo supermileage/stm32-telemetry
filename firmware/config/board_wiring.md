@@ -48,23 +48,9 @@ with `huart3`. USART3 IRQ priority remains 5, subpriority 0; its handler calls
 `HAL_UART_IRQHandler(&huart3)` for the existing byte-at-a-time receive queue.
 No DMA is added.
 
-## CAN settings still need a network specification
+## CAN settings
 
-The inherited code uses a 160 MHz FDCAN1 clock, divider 1, Classic CAN, normal
-mode, nominal prescaler 16, SJW 1, segment 1 = 1 and segment 2 = 1. This calculates
-to `160000000 / (16 * (1 + 1 + 1))`, about 3.33 Mbit/s, with a 66.7% sample point.
-These values were inherited without a network specification and are unverified.
-They are now explicit in the IOC so regeneration preserves the current behavior.
-
-Data prescaler, SJW and both data segments remain 1 (unused with Classic CAN).
-Automatic retransmission, transmit pause and protocol exception remain disabled;
-standard and extended filter counts remain zero, with TX FIFO operation. The main
-application initializes FDCAN1 but does not start it or send CAN traffic.
-
-Before using CAN, decide the bus bitrate, Classic versus FD/BRS format, sample
-point/SJW and timing, filters, retransmission policy, and transceiver/termination
-setup with the other network nodes. The inherited values are not a validated bus
-configuration. No CAN IRQ or DMA is added for a nonexistent receive/send path.
+See CAN subproject
 
 ## Preservation and validation
 

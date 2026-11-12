@@ -99,6 +99,8 @@ void Error_Handler(void);
 #define PC14_OSC32_IN_GPIO_Port GPIOC
 #define OCTOSPI_R_DQS_Pin GPIO_PIN_3
 #define OCTOSPI_R_DQS_GPIO_Port GPIOE
+#define CAN_TX_Pin GPIO_PIN_9
+#define CAN_TX_GPIO_Port GPIOB
 #define T_SWO_Pin GPIO_PIN_3
 #define T_SWO_GPIO_Port GPIOB
 #define OCTOSPI_R_IO7_Pin GPIO_PIN_7
@@ -113,6 +115,8 @@ void Error_Handler(void);
 #define OCTOSPI_F_IO0_GPIO_Port GPIOF
 #define USER_Button_Pin GPIO_PIN_13
 #define USER_Button_GPIO_Port GPIOC
+#define CAN_RX_Pin GPIO_PIN_8
+#define CAN_RX_GPIO_Port GPIOB
 #define OCTOSPI_F_IO4_Pin GPIO_PIN_9
 #define OCTOSPI_F_IO4_GPIO_Port GPIOH
 #define I2C2_SCL_Pin GPIO_PIN_4
