@@ -16,6 +16,7 @@
 #include "orion_bms.h"
 #include "util.h"
 #include <stdio.h>
+#include <stdbool.h>
 extern FDCAN_HandleTypeDef hfdcan1;
 
 void HAL_GPIO_EXTI_Rising_Callback(uint16_t pin) {
