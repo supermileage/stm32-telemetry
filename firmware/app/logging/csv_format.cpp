@@ -1,7 +1,6 @@
 #include "csv_format.h"
 
 #include <cstdio>
-#include <inttypes.h>
 
 static void format_elapsed(uint64_t value, char out[21])
 {
@@ -146,6 +145,6 @@ int imu_csv_format(const log_record_t *record, char *out, size_t capacity){
     int32_t y = data.data.y;
     int32_t z = data.data.z;
 
-    int length = snprintf(out + prefix, capacity - (size_t)prefix, "%ld, %f, %s, %d, %ld, %ld, %ld", ticks, time, type, timeslot, x, y, z);
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, "%lu, %f, %s, %d, %ld, %ld, %ld", ticks, time, type, timeslot, x, y, z);
     return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
 }
