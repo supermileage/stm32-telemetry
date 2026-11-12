@@ -7,3 +7,6 @@
 [submodule "lib/sd_spi"]
 	path = lib/sd_spi
 	url = https://github.com/akasa828/STM32_HAL-SPI_SD-FatFs.git
+[submodule "lib/can-common"]
+	path = lib/can-common
+	url = https://github.com/supermileage/can-common/
