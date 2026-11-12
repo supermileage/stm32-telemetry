@@ -8,6 +8,7 @@
 
 #define CSV_TIMESTAMP_HEADER "elapsed_ms,utc,time_status"
 #define GNSS_CSV_HEADER CSV_TIMESTAMP_HEADER ",fix_valid,latitude_deg,longitude_deg,speed_m_s"
+#define IMU_CSV_HEADER CSV_TIMESTAMP_HEADER ", IMU ticks, IMU time, data type, timeslot, x, y, z"
 #define CSV_ROW_CAPACITY 256U
 
 /**
@@ -21,5 +22,6 @@ int csv_format_timestamp(const sample_timestamp_t *timestamp, char *out, size_t 
  * Returns the character count, or -1 for invalid input or insufficient space.
  */
 int gnss_csv_format(const log_record_t *record, char *out, size_t capacity);
+int imu_csv_format(const log_record_t *record, char *out, size_t capacity);
 
 #endif

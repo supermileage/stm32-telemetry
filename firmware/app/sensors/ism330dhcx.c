@@ -131,7 +131,22 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 			record.source = LOG_SOURCE_IMU;
 			record.data.imu = data;
 			bool accepted = logger_submit(&record);
-			//log_write(&data);
+			const char *name;
+			switch (data.type){
+				case GYROSCOPE:
+					name = "Gyroscope";
+					break;
+				case ACCELEROMETER:
+					name = "Accelerometer";
+					break;
+				case TIMESTAMP:
+					name = "Timestamp";
+					break;
+				default:
+					name = "Unknown";
+					break;
+			}
+			//printf("IMU tick: %ld, timestamp: %f, timeslot: %d \r\n%s : x:%+04ld, y:%+04ld, z:%+04ld\r\n", data.ticks, data.time, data.timeslot, name, data.data.x, data.data.y, data.data.z);
 
 		}
 

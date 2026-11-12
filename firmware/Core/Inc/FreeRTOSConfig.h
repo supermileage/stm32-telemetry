@@ -175,6 +175,9 @@ header file. */
 /* CubeIDE uses the hard-float ABI. Preserve task FP registers. */
 #undef configENABLE_FPU
 #define configENABLE_FPU 1
+
+//Get warned about stack overflow
+#define configCHECK_FOR_STACK_OVERFLOW 2
 /* USER CODE END Defines */
 
 #endif /* __FREERTOS_CONFIG_H */

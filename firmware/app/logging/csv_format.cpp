@@ -1,6 +1,7 @@
 #include "csv_format.h"
 
 #include <cstdio>
+#include <inttypes.h>
 
 static void format_elapsed(uint64_t value, char out[21])
 {
@@ -50,7 +51,7 @@ int csv_format_timestamp(const sample_timestamp_t *timestamp, char *out, size_t 
         status = "RTC";
     }
 
-    int length = snprintf(out, capacity, "%s,%s,%s", elapsed, utc, status);
+    int length = snprintf(out, capacity, "%s,%s,%s,", elapsed, utc, status);
     return length >= 0 && (size_t)length < capacity ? length : -1;
 }
 
@@ -108,7 +109,43 @@ int gnss_csv_format(const log_record_t *record, char *out, size_t capacity)
         format_speed(measurement.speed.value, measurement.speed.scale, speed);
     }
 
-    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%u,%s,%s,%s",
-                          fix_valid ? 1U : 0U, latitude, longitude, speed);
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%u,%s,%s,%s", fix_valid ? 1U : 0U, latitude, longitude, speed);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}
+
+int imu_csv_format(const log_record_t *record, char *out, size_t capacity){
+    if (record == nullptr || record->source != LOG_SOURCE_IMU) {
+        return -1;
+    }
+
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+
+    const imu_data_t &data = record->data.imu;
+    uint32_t ticks = data.ticks;
+    double time = data.time;
+    const char *type;
+    switch (data.type) {
+    	case GYROSCOPE:
+    		type = "GYROSCOPE";
+    		break;
+    	case ACCELEROMETER:
+    		type = "ACCELEROMETER";
+    		break;
+    	case TIMESTAMP:
+    		type = "TIMESTAMP";
+    		break;
+    	default:
+    		type = "UNKNOWN type";
+    		break;
+    }
+    uint8_t timeslot = data.timeslot;
+    int32_t x = data.data.x;
+    int32_t y = data.data.y;
+    int32_t z = data.data.z;
+
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, "%ld, %f, %s, %d, %ld, %ld, %ld", ticks, time, type, timeslot, x, y, z);
     return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
 }

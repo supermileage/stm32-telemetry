@@ -66,7 +66,19 @@ static void SystemPower_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//override putchar so printf prints to uart
+int __io_putchar(char ch) {
+	HAL_UART_Transmit(&huart1, (uint8_t*) &ch, 1, 10);
+	return ch;
+}
 
+//Here if a stackoverflow happened
+void vApplicationStackOverflowHook(TaskHandle_t task, char *task_name){
+    (void)task;
+    (void)task_name;
+    __disable_irq();
+    for (;;) { }   // put a breakpoint here
+}
 /* USER CODE END 0 */
 
 /**
