@@ -146,7 +146,7 @@ uint16_t IMU_drain_fifo(imu_t *imu) {
 					name = "Unknown";
 					break;
 			}
-			//printf("IMU tick: %ld, timestamp: %f, timeslot: %d \r\n%s : x:%+04ld, y:%+04ld, z:%+04ld\r\n", data.ticks, data.time, data.timeslot, name, data.data.x, data.data.y, data.data.z);
+			printf("IMU tick: %ld, timestamp: %f, timeslot: %d \r\n%s : x:%+04ld, y:%+04ld, z:%+04ld\r\n", data.ticks, data.time, data.timeslot, name, data.data.x, data.data.y, data.data.z);
 
 		}
 

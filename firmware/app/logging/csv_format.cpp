@@ -1,6 +1,7 @@
 #include "csv_format.h"
 
 #include <cstdio>
+#include <stdbool.h>
 
 static void format_elapsed(uint64_t value, char out[21])
 {
@@ -50,7 +51,7 @@ int csv_format_timestamp(const sample_timestamp_t *timestamp, char *out, size_t 
         status = "RTC";
     }
 
-    int length = snprintf(out, capacity, "%s,%s,%s,", elapsed, utc, status);
+    int length = snprintf(out, capacity, "%s,%s,%s", elapsed, utc, status);
     return length >= 0 && (size_t)length < capacity ? length : -1;
 }
 
@@ -145,6 +146,87 @@ int imu_csv_format(const log_record_t *record, char *out, size_t capacity){
     int32_t y = data.data.y;
     int32_t z = data.data.z;
 
-    int length = snprintf(out + prefix, capacity - (size_t)prefix, "%lu, %f, %s, %d, %ld, %ld, %ld", ticks, time, type, timeslot, x, y, z);
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%lu, %f, %s, %d, %ld, %ld, %ld", ticks, time, type, timeslot, x, y, z);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}
+
+int bms_status_csv_format(const log_record_t *record, char *out, size_t capacity){
+    if (record == nullptr || record->source != LOG_SOURCE_BMS_STATUS) {
+        return -1;
+    }
+
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+
+    const bms_status_t &data = record->data.bms_status;
+    bool discharge_enabled = data.discharge_enabled;
+    bool charge_enabled = data.charge_enabled;
+    uint8_t fault_id = data.fault;
+
+
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%s,%s,%u", discharge_enabled ? "true" : "false", charge_enabled ? "true" : "false", fault_id);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}
+
+int bms_pack_csv_format(const log_record_t *record, char *out, size_t capacity){
+    if (record == nullptr || record->source != LOG_SOURCE_BMS_PACK) {
+        return -1;
+    }
+
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+
+    const bms_pack_t &data = record->data.bms_pack;
+    float state_of_charge = data.state_of_charge;
+    float voltage = data.voltage;
+    float current = data.current;
+
+
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%f,%f,%f", state_of_charge, voltage, current);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}
+
+int bms_cell_csv_format(const log_record_t *record, char *out, size_t capacity){
+    if (record == nullptr || record->source != LOG_SOURCE_BMS_CELL) {
+        return -1;
+    }
+
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+
+    const bms_cell_t &data = record->data.bms_cell;
+    float voltage_min = data.voltage_min;
+    float voltage_max = data.voltage_max;
+    float voltage_avg = data.voltage_avg;
+
+
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%f,%f,%f", voltage_min, voltage_max, voltage_avg);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}
+
+int bms_temperature_csv_format(const log_record_t *record, char *out, size_t capacity){
+    if (record == nullptr || record->source != LOG_SOURCE_BMS_TEMPERATURE) {
+        return -1;
+    }
+
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+
+    const bms_temperature_t &data = record->data.bms_temperature;
+	uint8_t temperature_min = data.temperature_min;
+	uint8_t temperature_max = data.temperature_max;
+	uint8_t temperature_avg = data.temperature_avg;
+	uint8_t bms_temperature = data.bms_temperature;
+
+
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ",%u,%u,%u,%u", temperature_min, temperature_max, temperature_avg, bms_temperature);
     return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
 }

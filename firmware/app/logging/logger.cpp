@@ -35,11 +35,21 @@ struct SensorLog {
 
 CsvFile gps_file;
 CsvFile imu_file;
+CsvFile bms_status_file;
+CsvFile bms_pack_file;
+CsvFile bms_cell_file;
+CsvFile bms_temperature_file;
 
 /** Each sensor owns a writable file buffer. This table stays read-only. */
 const SensorLog sensor_files[] = {
+	//TODO: combine all BMS measurements into one CSV. The four messages should arrive consecutively so we can merge them then push to csv (with a timeout)
+	{LOG_SOURCE_BMS_STATUS, "BMS_S.CSV", BMS_STATUS_HEADER, bms_status_csv_format, bms_status_file},
+	{LOG_SOURCE_BMS_PACK, "BMS_P.CSV", BMS_PACK_HEADER, bms_pack_csv_format, bms_pack_file},
+	{LOG_SOURCE_BMS_CELL, "BMS_C.CSV", BMS_CELL_HEADER, bms_cell_csv_format, bms_cell_file},
+	{LOG_SOURCE_BMS_TEMPERATURE, "BMS_T.CSV", BMS_TEMPERATURE_HEADER, bms_temperature_csv_format, bms_temperature_file},
     {LOG_SOURCE_GPS, "GPS.CSV", GNSS_CSV_HEADER, gnss_csv_format, gps_file},
     {LOG_SOURCE_IMU, "IMU.CSV", IMU_CSV_HEADER, imu_csv_format, imu_file}
+
 };
 
 char session_path[LOGGER_PATH_SIZE];
@@ -54,7 +64,7 @@ logger_status_t status;
 StaticTask_t task_control;
 
 /** FreeRTOS counts stack entries rather than bytes. This reserves 4 KiB. */
-constexpr uint32_t LoggerStackDepth = 1024U;
+constexpr uint32_t LoggerStackDepth = 4096U;
 StackType_t task_stack[LoggerStackDepth];
 
 const SensorLog *find_sensor_file(sensor_source_t source)
@@ -99,6 +109,10 @@ FRESULT open_recording()
     }
 
     for (const auto &sensor : sensor_files) {
+
+    	//DO NOT REMOVE unless you do the below fix
+    	/*If the files show up, that confirms it. The proper fix is then the SD_CheckStatus change from earlier, in your SD driver file: the one with disk_status / SD_status in it, which you can find by searching the project for BSP_SD_GetCardState. Once that’s in, you can remove the delay. If you’re tired, the delay alone is fine for tonight. It only costs about 0.6 seconds at startup.*/
+    	vTaskDelay(pdMS_TO_TICKS(100));
         /** Leave room for a slash and a short filename such as GPS.CSV. */
         char path[LOGGER_PATH_SIZE + 13U];
         const int length = std::snprintf(path, sizeof(path), "%s/%s",
@@ -112,6 +126,8 @@ FRESULT open_recording()
             return result;
         }
     }
+
+
 
     return FR_OK;
 }
@@ -299,7 +315,9 @@ bool logger_submit(const log_record_t *record)
 
     /** Keep submission and the state check together so a stop cannot split them. */
     taskENTER_CRITICAL();
-    const bool accepted = can_accept_records() && xQueueSend(commands, &command, 0U) == pdPASS;
+    bool can_accept = can_accept_records();
+    bool sent = xQueueSend(commands, &command, 0U) == pdPASS;
+    const bool accepted = can_accept && sent;
     if (accepted) {
         ++status.accepted_records;
     } else {

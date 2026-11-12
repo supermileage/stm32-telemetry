@@ -16,6 +16,8 @@
 #include "orion_bms.h"
 #include "util.h"
 #include <stdio.h>
+#include <stdbool.h>
+#include "logging/logger.h"
 extern FDCAN_HandleTypeDef hfdcan1;
 
 void HAL_GPIO_EXTI_Rising_Callback(uint16_t pin) {
@@ -34,6 +36,9 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 		HAL_FDCAN_GetRxMessage(&hfdcan1, FDCAN_RX_FIFO0, &RxHeader, RxData);
 		printf("New packet received\n");
 
+		log_record_t record;
+		record.timestamp = sample_clock_now();
+
 		switch(RxHeader.Identifier){
 			case CAN_ORIONBMS_STATUS:
 				printf("BMS status\n");
@@ -46,6 +51,13 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 
 				uint8_t fault = parseFault(RxData);
 				printf("Fault ID: %d\n", fault);
+
+				bms_status_t bms_status;
+				record.source = LOG_SOURCE_BMS_STATUS;
+				bms_status.discharge_enabled = discharge_enabled;
+				bms_status.charge_enabled = charge_enabled;
+				bms_status.fault = fault;
+				record.data.bms_status = bms_status;
 				break;
 			case CAN_ORIONBMS_PACK:
 				printf("BMS pack\n");
@@ -61,6 +73,13 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				uint16_t current_data = combine_u8_to_u16(RxData[2], RxData[3]);
 				float current = current_data / BMS_CURRENT_SCALING_FACTOR;
 				printf("Battery current: %f\n", current);
+
+				bms_pack_t bms_pack;
+				record.source = LOG_SOURCE_BMS_PACK;
+				bms_pack.state_of_charge = soc;
+				bms_pack.voltage = voltage;
+				bms_pack.current = current;
+				record.data.bms_pack = bms_pack;
 				break;
 			case CAN_ORIONBMS_CELL:
 				printf("BMS cell\n");
@@ -77,6 +96,12 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				float voltage_avg = voltage_avg_data / BMS_CELL_SCALING_FACTOR;
 				printf("Cells' voltage avg: %f\n", voltage_avg);
 
+				bms_cell_t bms_cell;
+				record.source = LOG_SOURCE_BMS_CELL;
+				bms_cell.voltage_min = voltage_min;
+				bms_cell.voltage_max = voltage_max;
+				bms_cell.voltage_avg = voltage_avg;
+				record.data.bms_cell = bms_cell;
 				break;
 			case CAN_ORIONBMS_TEMP:
 				printf("BMS temp\n");
@@ -93,11 +118,20 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 				uint8_t bms_temp = RxData[3];
 				printf("BMS temperature: %d\n", bms_temp);
 
+				bms_temperature_t bms_temperature;
+				record.source = LOG_SOURCE_BMS_TEMPERATURE;
+				bms_temperature.temperature_min = battery_temp_min;
+				bms_temperature.temperature_max = battery_temp_max;
+				bms_temperature.temperature_avg = battery_temp_avg;
+				bms_temperature.bms_temperature = bms_temp;
+				record.data.bms_temperature = bms_temperature;
 				break;
 			default:
 				printf("Unknown ID %lu\n", RxHeader.Identifier);
 				break;
 		}
+
+		bool accepted = logger_submit(&record);
 
 	}
 }

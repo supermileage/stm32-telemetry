@@ -9,6 +9,10 @@
 #define CSV_TIMESTAMP_HEADER "elapsed_ms,utc,time_status"
 #define GNSS_CSV_HEADER CSV_TIMESTAMP_HEADER ",fix_valid,latitude_deg,longitude_deg,speed_m_s"
 #define IMU_CSV_HEADER CSV_TIMESTAMP_HEADER ", IMU ticks, IMU time, data type, timeslot, x, y, z"
+#define BMS_STATUS_HEADER CSV_TIMESTAMP_HEADER ", discharge enabled, charge enabled, fault id"
+#define BMS_PACK_HEADER CSV_TIMESTAMP_HEADER ", state of charge (soc), voltage, current"
+#define BMS_CELL_HEADER CSV_TIMESTAMP_HEADER ", voltage min, voltage max, voltage avg"
+#define BMS_TEMPERATURE_HEADER CSV_TIMESTAMP_HEADER ", temperature min, temperature max, temperature avg, bms temperature"
 #define CSV_ROW_CAPACITY 256U
 
 /**
@@ -23,5 +27,9 @@ int csv_format_timestamp(const sample_timestamp_t *timestamp, char *out, size_t 
  */
 int gnss_csv_format(const log_record_t *record, char *out, size_t capacity);
 int imu_csv_format(const log_record_t *record, char *out, size_t capacity);
+int bms_status_csv_format(const log_record_t *record, char *out, size_t capacity);
+int bms_pack_csv_format(const log_record_t *record, char *out, size_t capacity);
+int bms_cell_csv_format(const log_record_t *record, char *out, size_t capacity);
+int bms_temperature_csv_format(const log_record_t *record, char *out, size_t capacity);
 
 #endif

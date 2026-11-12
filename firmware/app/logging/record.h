@@ -5,11 +5,16 @@
 #include "time/sample_clock.h"
 #include "sensors/gnss_record.h"
 #include "sensors/ism330dhcx.h"
+#include "sensors/orion_bms.h"
 
 /** Identify which data member is filled. The IMU source is reserved for later. */
 typedef enum {
     LOG_SOURCE_IMU,
-    LOG_SOURCE_GPS
+    LOG_SOURCE_GPS,
+	LOG_SOURCE_BMS_STATUS,
+	LOG_SOURCE_BMS_PACK,
+	LOG_SOURCE_BMS_CELL,
+	LOG_SOURCE_BMS_TEMPERATURE
 } sensor_source_t;
 
 /**
@@ -26,6 +31,10 @@ typedef struct {
     union {
         gnss_measurement_t gps;
         imu_data_t imu;
+        bms_status_t bms_status;
+        bms_pack_t bms_pack;
+        bms_cell_t bms_cell;
+        bms_temperature_t bms_temperature;
     } data;
 } log_record_t;
 
