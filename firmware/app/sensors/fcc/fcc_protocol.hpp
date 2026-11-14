@@ -10,6 +10,7 @@ namespace fcc_protocol
     // Packet configuration
     constexpr std::size_t PacketSize = 8U;
     constexpr std::uint32_t PacketPeriodMs = 500U;
+    constexpr std::uint32_t PacketGapMs = 50U;
 
     // Byte positions (zero-based)
     constexpr std::size_t ErrorFlagIndex = 0U;

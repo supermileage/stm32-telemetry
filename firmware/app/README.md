@@ -2,7 +2,7 @@
 
 Sensor tasks collect and timestamp measurements, then send them to the logger.
 The logger saves one CSV per sensor on the SD card, such as
-`0:/LOGS/RUN00001/GPS.CSV`. GPS is the only sensor in use so far.
+`0:/LOGS/RUN00001/GPS.CSV` and `FCC.CSV`.
 
 ## Files and folders
 
@@ -16,9 +16,10 @@ The logger saves one CSV per sensor on the SD card, such as
 
 ## Startup
 
-`app_init()` creates the logger and GNSS tasks after peripheral setup and before
-the scheduler starts. The logger then mounts the card and opens the files while
-the GNSS task reads GPS data through USART3.
+`app_init()` creates the logger, GNSS, FCC, and IMU tasks after peripheral setup
+and before the scheduler starts. The logger then mounts the card and opens the
+files. GPS reads USART3 on Arduino D1/D0; the
+[FCC task](sensors/fcc/README.md) reads LPUART1 on Arduino D8/A0.
 
 Only the logger task accesses the SD card. Other tasks send it records through
 a queue. See the [logging guide](logging/README.md) for saving and stopping.

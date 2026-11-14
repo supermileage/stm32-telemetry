@@ -11,7 +11,6 @@
 
 #include "imu_task.h"
 
-//temporary, removed when CAN interrupt function moved to its own file
 #include "can_common.h"
 #include "orion_bms.h"
 #include "util.h"

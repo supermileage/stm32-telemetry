@@ -23,10 +23,10 @@
 #include "fdcan.h"
 #include "i2c.h"
 #include "icache.h"
+#include "usart.h"
 #include "octospi.h"
 #include "rtc.h"
 #include "spi.h"
-#include "usart.h"
 #include "ucpd.h"
 #include "usb_otg.h"
 #include "gpio.h"
@@ -127,6 +127,7 @@ int main(void)
   MX_RTC_Init();
   MX_SPI1_Init();
   MX_USART3_UART_Init();
+  MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */

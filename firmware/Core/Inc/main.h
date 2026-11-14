@@ -165,6 +165,10 @@ void Error_Handler(void);
 #define WRLS_WKUP_B_GPIO_Port GPIOG
 #define Mems_VL53_xshut_Pin GPIO_PIN_1
 #define Mems_VL53_xshut_GPIO_Port GPIOH
+#define FCC_RX_Pin GPIO_PIN_0
+#define FCC_RX_GPIO_Port GPIOC
+#define FCC_TX_Pin GPIO_PIN_1
+#define FCC_TX_GPIO_Port GPIOC
 #define MIC_CCK0_Pin GPIO_PIN_9
 #define MIC_CCK0_GPIO_Port GPIOE
 #define Mems_VLX_GPIO_Pin GPIO_PIN_5
