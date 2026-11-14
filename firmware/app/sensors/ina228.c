@@ -62,11 +62,11 @@ void INA228_init(ina228_t *ina228){
 	INA228_setup(ina228);
 }
 
-//negative value = error
+//large negative value = error
 //TODO: better way to signal error
 static float read_value(ina228_t *ina228, uint8_t register_address, float conversion_factor){
 	uint8_t raw[3];
-	if(i2c_read(ina228->i2c_bus, INA228_ADDRESS, register_address, raw, 3) != HAL_OK) { return -1.0f; }
+	if(i2c_read(ina228->i2c_bus, INA228_ADDRESS, register_address, raw, 3) != HAL_OK) { return -9999.0f; }
 	uint32_t combined = combine_u8_to_u32(0x00, raw[0], raw[1], raw[2]);
 	//combined is 20-bit two's complement in bits [23:4]
 	combined >>= 4;

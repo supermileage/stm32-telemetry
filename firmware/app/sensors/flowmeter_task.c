@@ -5,10 +5,12 @@
  *      Author: Faysal
  */
 
+#include "flowmeter_task.h"
 #include "ina228.h"
 #include "i2c.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "logging/logger.h"
 
 #include <stdio.h>
 
@@ -32,17 +34,23 @@ void FlowMeter_task(void *parameters) {
 		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
 
 		float current_a = INA228_read_current(&ina228);
-		if(current_a < -0.2){ //negative current means error
-			printf("Error with reading current\r\n");
-			//restart sensor/handle error
-		}
-		printf("Current is %fA\r\n", current_a);
-
-		float voltage_shunt_v = INA228_read_voltage_shunt(&ina228);
-		printf("Voltage (shunt) is %fV\r\n", voltage_shunt_v);
-
 		float voltage_bus_v = INA228_read_voltage_bus(&ina228);
-		printf("Voltage (bus) is %fV\r\n", voltage_bus_v);
+		if(current_a < -9000.0 || voltage_bus_v < -9000.0){
+			printf("Error with reading flow sensor\r\n");
+			//restart sensor/handle error
+		}else{
+			printf("Current is %fA\r\n", current_a);
+			printf("Voltage (bus) is %fV\r\n", voltage_bus_v);
+			flowmeter_data_t flowmeter_data;
+			flowmeter_data.current_a = current_a;
+			flowmeter_data.voltage_bus_v = voltage_bus_v;
+
+			log_record_t record;
+			record.timestamp = sample_clock_now();
+			record.source = LOG_SOURCE_FLOWMETER;
+			record.data.flowmeter = flowmeter_data;
+			bool accepted = logger_submit(&record);
+		}
 	}
 }
 

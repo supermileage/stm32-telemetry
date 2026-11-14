@@ -7,6 +7,7 @@
 #include "sensors/fcc/fcc_record.h"
 #include "sensors/ism330dhcx.h"
 #include "sensors/orion_bms.h"
+#include "sensors/flowmeter_task.h"
 
 /** Identify which data member is filled. */
 typedef enum {
@@ -16,7 +17,8 @@ typedef enum {
 	LOG_SOURCE_BMS_PACK,
 	LOG_SOURCE_BMS_CELL,
 	LOG_SOURCE_BMS_TEMPERATURE,
-    LOG_SOURCE_FCC
+    LOG_SOURCE_FCC,
+	LOG_SOURCE_FLOWMETER
 } sensor_source_t;
 
 /**
@@ -38,6 +40,7 @@ typedef struct {
         bms_cell_t bms_cell;
         bms_temperature_t bms_temperature;
         fcc_measurement_t fcc;
+        flowmeter_data_t flowmeter;
     } data;
 } log_record_t;
 

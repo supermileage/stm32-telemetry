@@ -40,8 +40,10 @@ CsvFile bms_pack_file;
 CsvFile bms_cell_file;
 CsvFile bms_temperature_file;
 CsvFile fcc_file;
+CsvFile flowmeter_file;
 
 /** Each sensor owns a writable file buffer. This table stays read-only. */
+//8.3 format, ensure file name less than 8 characters!
 const SensorLog sensor_files[] = {
 	//TODO: combine all BMS measurements into one CSV. The four messages should arrive consecutively so we can merge them then push to csv (with a timeout)
 	{LOG_SOURCE_BMS_STATUS, "BMS_S.CSV", BMS_STATUS_HEADER, bms_status_csv_format, bms_status_file},
@@ -50,7 +52,8 @@ const SensorLog sensor_files[] = {
 	{LOG_SOURCE_BMS_TEMPERATURE, "BMS_T.CSV", BMS_TEMPERATURE_HEADER, bms_temperature_csv_format, bms_temperature_file},
     {LOG_SOURCE_GPS, "GPS.CSV", GNSS_CSV_HEADER, gnss_csv_format, gps_file},
     {LOG_SOURCE_IMU, "IMU.CSV", IMU_CSV_HEADER, imu_csv_format, imu_file},
-    {LOG_SOURCE_FCC, "FCC.CSV", FCC_CSV_HEADER, fcc_csv_format, fcc_file}
+    {LOG_SOURCE_FCC, "FCC.CSV", FCC_CSV_HEADER, fcc_csv_format, fcc_file},
+	{LOG_SOURCE_FLOWMETER, "FLOWM.CSV", FLOWMETER_HEADER, flowmeter_csv_format, flowmeter_file}
 };
 
 char session_path[LOGGER_PATH_SIZE];

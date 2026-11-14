@@ -211,3 +211,21 @@ int fcc_csv_format(const log_record_t *record, char *out, size_t capacity)
         (long)measurement.fuel_cell_current_ma, (long)measurement.battery_voltage_mv);
     return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
 }
+
+int flowmeter_csv_format(const log_record_t *record, char *out, size_t capacity){
+    if (record == nullptr || record->source != LOG_SOURCE_FLOWMETER) {
+        return -1;
+    }
+
+    int prefix = csv_format_timestamp(&record->timestamp, out, capacity);
+    if (prefix < 0) {
+        return -1;
+    }
+
+    const flowmeter_data_t &data = record->data.flowmeter;
+
+    int length = snprintf(out + prefix, capacity - (size_t)prefix, ", %f, %f",
+    		data.current_a,
+			data.voltage_bus_v);
+    return length >= 0 && (size_t)length < capacity - (size_t)prefix ? prefix + length : -1;
+}

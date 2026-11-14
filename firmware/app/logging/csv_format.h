@@ -14,6 +14,7 @@
 #define BMS_PACK_HEADER CSV_TIMESTAMP_HEADER ", state of charge (soc), voltage, current"
 #define BMS_CELL_HEADER CSV_TIMESTAMP_HEADER ", voltage min, voltage max, voltage avg"
 #define BMS_TEMPERATURE_HEADER CSV_TIMESTAMP_HEADER ", temperature min, temperature max, temperature avg, bms temperature"
+#define FLOWMETER_HEADER CSV_TIMESTAMP_HEADER ", current (A), FC voltage (V)"
 #define CSV_ROW_CAPACITY 256U
 
 /**
@@ -33,5 +34,6 @@ int bms_pack_csv_format(const log_record_t *record, char *out, size_t capacity);
 int bms_cell_csv_format(const log_record_t *record, char *out, size_t capacity);
 int bms_temperature_csv_format(const log_record_t *record, char *out, size_t capacity);
 int fcc_csv_format(const log_record_t *record, char *out, size_t capacity);
+int flowmeter_csv_format(const log_record_t *record, char *out, size_t capacity);
 
 #endif
