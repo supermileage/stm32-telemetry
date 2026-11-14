@@ -6,6 +6,7 @@
 #include "sensors/fcc/fcc_task.hpp"
 #include "sensors/fcc/fcc_protocol.hpp"
 #include "sensors/imu_task.h"
+#include "sensors/flowmeter_task.h"
 
 void app_init(void) {
     logger_start_task();
@@ -14,4 +15,5 @@ void app_init(void) {
         Error_Handler();
     }
     IMU_start_task();
+    FlowMeter_start_task();
 }
