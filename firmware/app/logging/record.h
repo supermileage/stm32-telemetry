@@ -3,18 +3,20 @@
 #define LOG_RECORD_H
 
 #include "time/sample_clock.h"
-#include "sensors/gnss_record.h"
+#include "sensors/gnss/gnss_record.h"
+#include "sensors/fcc/fcc_record.h"
 #include "sensors/ism330dhcx.h"
 #include "sensors/orion_bms.h"
 
-/** Identify which data member is filled. The IMU source is reserved for later. */
+/** Identify which data member is filled. */
 typedef enum {
     LOG_SOURCE_IMU,
     LOG_SOURCE_GPS,
 	LOG_SOURCE_BMS_STATUS,
 	LOG_SOURCE_BMS_PACK,
 	LOG_SOURCE_BMS_CELL,
-	LOG_SOURCE_BMS_TEMPERATURE
+	LOG_SOURCE_BMS_TEMPERATURE,
+    LOG_SOURCE_FCC
 } sensor_source_t;
 
 /**
@@ -35,6 +37,7 @@ typedef struct {
         bms_pack_t bms_pack;
         bms_cell_t bms_cell;
         bms_temperature_t bms_temperature;
+        fcc_measurement_t fcc;
     } data;
 } log_record_t;
 

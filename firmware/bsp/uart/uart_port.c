@@ -15,7 +15,8 @@ typedef struct {
 static uart_binding_t bindings[] = {
     {&huart1, USART1_IRQn, NULL},
     {&huart3, USART3_IRQn, NULL},
-    {&huart4, UART4_IRQn, NULL}
+    {&huart4, UART4_IRQn, NULL},
+    {&hlpuart1, LPUART1_IRQn, NULL}
 };
 
 static uart_binding_t *binding_for(UART_HandleTypeDef *handle)

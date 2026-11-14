@@ -7,13 +7,11 @@
 
 #include <stddef.h>
 
-enum {
-    /** FreeRTOS counts stack entries. This reserves 2 KiB on this MCU. */
-    GNSS_STACK_DEPTH = 512U,
-    GNSS_READ_SIZE = 16U,
-    GNSS_READ_TIMEOUT_MS = 20U,
-    GNSS_RX_RETRY_MS = 100U
-};
+static constexpr size_t GNSS_STACK_DEPTH = 512U;
+static constexpr size_t GNSS_READ_SIZE = 16U;
+static constexpr uint32_t GNSS_READ_TIMEOUT_MS = 20U;
+static constexpr uint32_t GNSS_RX_RETRY_MS = 100U;
+static constexpr UBaseType_t GNSS_TASK_PRIORITY = tskIDLE_PRIORITY + 2U;
 
 static uart_port_t gnss_uart;
 static GnssParser parser;
@@ -21,7 +19,7 @@ static StaticTask_t task_control;
 static StackType_t task_stack[GNSS_STACK_DEPTH];
 static TaskHandle_t task_handle;
 
-/** Critical sections keep counter updates together for gnss_get_status(). */
+// Critical sections keep status snapshots consistent.
 static gnss_status_t status;
 
 static void gnss_task(void *argument)
@@ -32,7 +30,7 @@ static void gnss_task(void *argument)
     uart_rx_status_t previous_rx = uart_port_rx_status(&gnss_uart);
 
     for (;;) {
-        /** Retry reception after startup failures or UART errors. */
+        // Retry reception after startup failures or UART errors.
         if (!uart_port_start_rx(&gnss_uart)) {
             parser.reset();
             previous_rx = uart_port_rx_status(&gnss_uart);
@@ -48,7 +46,7 @@ static void gnss_task(void *argument)
         previous_rx = rx;
 
         if (damaged) {
-            /** Lost or damaged bytes invalidate the partial sentence. */
+            // Lost or damaged bytes invalidate the partial sentence.
             parser.reset();
             continue;
         }
@@ -71,12 +69,18 @@ static void gnss_task(void *argument)
                 }
 
                 log_record_t record{};
-                /** Keep this capture time with the measurement through SD delays. */
                 record.timestamp = sample_clock_now();
                 record.source = LOG_SOURCE_GPS;
-                record.data.gps = sample.measurement;
+                const auto &measurement = sample.measurement;
+                record.data.gps.fix_valid = measurement.fix_valid;
+                record.data.gps.speed_valid = measurement.speed_valid;
+                record.data.gps.latitude_udeg = measurement.latitude_udeg;
+                record.data.gps.longitude_udeg = measurement.longitude_udeg;
+                record.data.gps.speed_mm_s = measurement.speed_mm_s;
+                record.data.gps.course_mdeg = measurement.course_mdeg;
+                record.data.gps.course_valid = measurement.course_valid;
 
-                /** A full logger queue must not hold up UART reception. */
+                // A full logger queue must not hold up UART reception.
                 accepted = logger_submit(&record);
             }
 
@@ -121,7 +125,7 @@ bool gnss_start_task(UART_HandleTypeDef *uart)
     }
 
     task_handle = xTaskCreateStatic(gnss_task, "gnss", GNSS_STACK_DEPTH, NULL,
-                                  tskIDLE_PRIORITY + 2U, task_stack, &task_control);
+                                  GNSS_TASK_PRIORITY, task_stack, &task_control);
     return task_handle != NULL;
 }
 

@@ -39,6 +39,7 @@ CsvFile bms_status_file;
 CsvFile bms_pack_file;
 CsvFile bms_cell_file;
 CsvFile bms_temperature_file;
+CsvFile fcc_file;
 
 /** Each sensor owns a writable file buffer. This table stays read-only. */
 const SensorLog sensor_files[] = {
@@ -48,8 +49,8 @@ const SensorLog sensor_files[] = {
 	{LOG_SOURCE_BMS_CELL, "BMS_C.CSV", BMS_CELL_HEADER, bms_cell_csv_format, bms_cell_file},
 	{LOG_SOURCE_BMS_TEMPERATURE, "BMS_T.CSV", BMS_TEMPERATURE_HEADER, bms_temperature_csv_format, bms_temperature_file},
     {LOG_SOURCE_GPS, "GPS.CSV", GNSS_CSV_HEADER, gnss_csv_format, gps_file},
-    {LOG_SOURCE_IMU, "IMU.CSV", IMU_CSV_HEADER, imu_csv_format, imu_file}
-
+    {LOG_SOURCE_IMU, "IMU.CSV", IMU_CSV_HEADER, imu_csv_format, imu_file},
+    {LOG_SOURCE_FCC, "FCC.CSV", FCC_CSV_HEADER, fcc_csv_format, fcc_file}
 };
 
 char session_path[LOGGER_PATH_SIZE];

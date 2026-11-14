@@ -10,7 +10,7 @@ tasks send records to the logger instead.
 | Setting | Value | Meaning |
 | --- | --- | --- |
 | `_FS_REENTRANT` | 0 | No locking between tasks |
-| `_FS_LOCK` | 2 | Track up to two open files or directories |
+| `_FS_LOCK` | 7 | Track up to seven open files or directories (need one per file, since all stay open) |
 | `_USE_LFN` | 0 | Names must fit the short 8.3 format |
 | `_FS_NORTC` | 1 | Use a fixed date for file metadata |
 
