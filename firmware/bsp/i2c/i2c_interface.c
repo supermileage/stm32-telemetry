@@ -6,14 +6,11 @@
  */
 
 #include "i2c_interface.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
+#include "i2c.h" //for i2c handles
+#include "main.h" //for pin names
 
 
 //add one for each used I2C bus
-extern I2C_HandleTypeDef hi2c2;
 i2c_bus_t i2c2_bus = {
 		&hi2c2,
 		I2C2_SCL_GPIO_Port,
@@ -21,6 +18,11 @@ i2c_bus_t i2c2_bus = {
 		I2C2_SDA_GPIO_Port,
 		I2C2_SDA_Pin
 };
+
+//init all so we always add and delete new buses in these .c/.h files
+void i2c_bus_init_all(){
+	i2c2_bus.mutex = xSemaphoreCreateMutex();
+}
 
 static HAL_StatusTypeDef try_transfer(I2C_HandleTypeDef *i2c_handle, uint16_t device_address, i2c_direction_t direction, uint8_t register_address, uint8_t *data, uint16_t length) {
 	HAL_StatusTypeDef status = HAL_ERROR;
@@ -34,6 +36,8 @@ static HAL_StatusTypeDef try_transfer(I2C_HandleTypeDef *i2c_handle, uint16_t de
 }
 
 static HAL_StatusTypeDef transfer_with_recovery(i2c_bus_t *i2c_bus, uint16_t device_address, i2c_direction_t direction, uint8_t register_address, uint8_t *data, uint16_t length) {
+	if (xSemaphoreTake(i2c_bus->mutex, pdMS_TO_TICKS(I2C_LOCK_TIMEOUT_MS)) != pdTRUE) { return HAL_BUSY; }
+
 	//attempt to read
 	if (try_transfer(i2c_bus->handle, device_address, direction, register_address, data, length) == HAL_OK) {
 		return HAL_OK;
@@ -69,7 +73,9 @@ static HAL_StatusTypeDef transfer_with_recovery(i2c_bus_t *i2c_bus, uint16_t dev
 	vTaskDelay(pdMS_TO_TICKS(1));
 
 	HAL_I2C_Init(i2c_bus->handle);
-	return try_transfer(i2c_bus->handle, device_address, direction, register_address, data, length);
+	HAL_StatusTypeDef status = try_transfer(i2c_bus->handle, device_address, direction, register_address, data, length);
+	xSemaphoreGive(i2c_bus->mutex);
+	return status;
 }
 
 HAL_StatusTypeDef i2c_read(i2c_bus_t *i2c_bus, uint16_t device_address, uint8_t register_address, uint8_t *data, uint16_t length){

@@ -9,6 +9,10 @@
 #include "sensors/flowmeter_task.h"
 
 void app_init(void) {
+	//one time
+	i2c_bus_init_all();
+
+	//tasks
     logger_start_task();
     gnss_start_task(&huart3);
     if (!fcc_start_task(&hlpuart1, fcc_protocol::PacketGapMs)) {
